@@ -1,6 +1,8 @@
-import { AsyncStorage } from 'react-native';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HsvColor } from "react-native-color-picker/dist/typeHelpers";
+import FileViewer from 'react-native-file-viewer';
+// import arp from '@network-utils/arp-lookup';
+
 import { LampType, ActionCreatorType, ThunkType } from "./types";
 
 type initialStateLampType = {
@@ -79,10 +81,161 @@ const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
     };
 };
 
+// Функция получения ip-адреса лампы (статического адреса лампы)
+const getIp = async (macAddress: string, dispatch: any) => {
+    // try {
+    //     if (arp.isMAC(macAddress)) {
+    //         return await arp.toIP(macAddress);
+    //     }
+    // } catch (error) {
+    //     let errorText = `Произошла ошибка при определении динамического адреса лампы: ${error}`;
+    //     dispatch(ActionCreator.getError(errorText));
+    // }
+    return `192.168.2.47`;
+}
+
 const Operation = {
-    // Проверка на вкл/выкл лампы
-    toggleLamp: (link: string, isOn: boolean): ThunkType => (dispatch, getState, api) => {
-        return api.post(`/${link}`, isOn)
+    // Добавление ip-адреса новой лампы
+    // Ответ - только один мак-адрес лампы (динамический адрес лампы)
+    // Задача - добавление в массив ip-адресов вычисленный ip-адрес лампы
+    addNewLamp: (object: { 
+        name?: string | undefined, 
+        password?: string | undefined 
+    } | null): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.getMac.post('/get-mac', object)
+            .then(async (response: any) => {
+                const data = response.data;
+
+                if (response.status >= 200 && response.status <= 300) {
+                    // Нахожу ip-адрес лампы (стаический адрес лампы)
+                    let ipAddress = getIp(data.macAddress, dispatch);
+
+                    const path = '/proc/net/arp';
+                    FileViewer.open(path)
+                    .then((response: any) => {
+                        console.log(response);
+                    })
+                    .catch((error: Error) => {
+                        let errorText = `Произошла ошибка при нахождении ip адреса устройства: ${error}`;
+                        dispatch(ActionCreator.getError(errorText));
+                    })
+
+                    if (getState().ip && getState().ip.length > 0) {
+                        let el = getState().ip.find(async (ip: any) => {
+                            return ip === await ipAddress;
+                        })
+
+                        if (el) {
+                            alert('Такая лампа уже подключена!');
+                            dispatch(ActionCreator.clearSpinner());
+                            return null;
+                        } else {
+                            dispatch(ActionCreator.setIP(await ipAddress));
+                        }
+                    } else if (getState().ip && getState().ip.length === 0) {
+                        // Пушу найденный ip-адрес лампы в массив ip-адресов
+                        dispatch(ActionCreator.setIP(await ipAddress));
+                    }
+
+                    if (getState().ip && getState().ip.length > 0) {
+                        getState().ip.forEach((ip: string) => {
+                            dispatch(Operation.loadLamp(ip));
+                        })
+                    }
+                }
+            })
+            .catch((error: Error) => {
+                let errorText = `Произошла ошибка при подключении новой лампы: ${error}`;
+                dispatch(ActionCreator.getError(errorText));
+            })
+    },
+    // Запрос на ip-адрес новой лампы
+    // Ответ - новый объект лампы
+    // Задача - {
+    //     Добавление нового объекта лампы в массив ламп,
+    //     Остановка спиннера загрузки, 
+    //     Запись нового объекта лампы в хранилище телефона
+    // }
+    loadLamp: (ip: string): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lumpIp.post(`/${ip}`)
+            .then((response: any) => {
+                const data = response.data;
+
+                if (response.status >= 200 && response.status <= 300) {
+                    let currentState = getState();
+
+                    if (currentState.ip && currentState.ip.length > 0) {
+                        data.macAddress = currentState.ip[currentState.ip.length - 1];
+                    }
+
+                    data.id = data.macAddress;
+
+                    // Добавление новой лампы в массив ламп
+                    dispatch(ActionCreator.pushLamp(data));
+
+                    // Добавление новой лампы в AsyncStorage
+                    AsyncStorage.setItem(data.id, JSON.stringify(data));
+
+                    // Остановка спиннера
+                    dispatch(ActionCreator.clearSpinner());
+
+                    // Происходит запись новой лампы в хранилище телефона
+                    const appLapms = async (data: any) => {
+                        try {
+                            AsyncStorage.getAllKeys((err, keys: any) => {
+                                AsyncStorage.multiGet(keys, (err, stores: any) => {
+                                  stores.map((result: any, i: any, store: any) => {
+                                    // Для каждой лампы, которая есть в AsyncStorage мы проверяем совпадает ли новая лампа, 
+                                    // если совпадает, то не добавляем ее в AsyncStorage
+                                    let value = store[i][1];
+                                    value = JSON.parse(value);
+
+                                    let valueString = JSON.stringify(value);
+                                    let dataString = JSON.stringify(data);
+
+                                    if (valueString !== dataString) {
+                                        AsyncStorage.setItem(data.id, JSON.stringify(data));
+                                    } else {
+                                        return null;
+                                    }
+                                  });
+                                });
+                              });
+                        } catch (error) {
+                            let errorText = `Ошибка при загрузке данных из хранилища: ${error}`;
+                            dispatch(ActionCreator.getError(errorText));
+                        }
+                    };
+
+                    appLapms(data);
+                }
+            })
+            .catch((error: Error) => {
+                let errorText = `Произошла ошибка при загрузке лампы: ${error}`;
+                dispatch(ActionCreator.getError(errorText));
+            })
+    },
+    // Запрос на проверку лампы ("В сети" / "Не в сети")
+    // Если запрос дошел до лампы, то выставляес статус "В сети"
+    // При ошибке выставляем статус "Не в сети"
+    checkAlive: (ipLamp: string): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lumpIp.get(`/${ipLamp}`)
+            .then((response: any) => {
+                const data = response.data;
+
+                if (response.status >= 200 && response.status <= 300) {
+                    dispatch(ActionCreator.setOnline(true));
+                }
+            })
+            .catch(() => {
+                dispatch(ActionCreator.setOnline(false))
+            })
+    },
+    // Запрос на включение/выключение лампы
+    // На данный момент ответ не интересен, так как состояине лампы одно на все компоненты, и изменяется везде
+    // Ответ - значения 0 или 1, при 0 - лампа на данный момент выключилась, при 1 - лампа на данный момент включилась
+    toggleLamp: (link: string, isOn: boolean): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lumpIp.get(`/${link}`, isOn)
             .then((response: any) => {
                 if (response.status >= 200 && response.status <= 300) {
                     console.log(`Лампа изменила состояние с ${!isOn} на ${isOn}`);
@@ -93,88 +246,9 @@ const Operation = {
                 dispatch(ActionCreator.getError(errorText));
             })
     },
-    // изменить все get на set
-    // отправка данных с приложения
-    sendData: (link: string, object: { currentValue?: number | string | HsvColor }): ThunkType => (dispatch, getState, api) => {
-        return api.post(`/${link}`, object)
-            .then((response: any) => {
-                if (response.status >= 200 && response.status <= 300) {
-                    console.log(`Данные отправились`);
-                }
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при отправке данных: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // Добавление нового объекта лампы
-    addNewLamp: (link: string, object: { 
-        name?: string | undefined, 
-        password?: string | undefined 
-    } | null): ThunkType => (dispatch, getState, api) => {
-        return api.post(`/${link}`, object)
-            .then((response: any) => {
-                const data = response.data;
-
-                if (response.status >= 200 && response.status <= 300) {
-                    let macAddress = data.macAddress;
-                    let ip = data.macAddress//!!!!!!!!!!!!!!!!вычислить ip и отправлять 2 запроса(гет и пост) уже не на маску, а на ip адрес
-                    // Записываю ip-адрес новой лампы в массив ip-адресов
-                    dispatch(ActionCreator.setIP(ip));
-                    // коммент ниже (следующий оперэйшен)
-                    dispatch(Operation.loadLamp(ip));
-                }
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при подключении новой лампы: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // Запрос на ip-адрес новой лампы
-    loadLamp: (ip: string): ThunkType => (dispatch, getState, api) => {
-        return api.post(`/${ip}`)
-            .then((response: any) => {
-                const data = response.data;
-
-                // Остановка спиннера
-                dispatch(ActionCreator.clearSpinner());
-                // Добавление новой лампы в массив ламп
-                dispatch(ActionCreator.pushLamp(data));
-
-                // Происходит запись новой лампы в LocalStorage
-                const appLapms = async (data: any) => {
-                    try {
-                        await AsyncStorage.setItem(`lamp`, JSON.stringify(data));
-                    } catch (error) {
-                        let errorText = `Ошибка при загрузке данных из хранилища: ${error}`;
-                        dispatch(ActionCreator.getError(errorText));
-                    }
-                };
-
-                appLapms(data);
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при загрузке лампы: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // Проверка лампы на "в сети" / "не в сети"
-    getLamp: (ipLamp: string): ThunkType => (dispatch, getState, api) => {
-        return api.get(`/${ipLamp}`)
-            .then((response: any) => {
-                const data = response.data;
-
-                if (data) {
-                    dispatch(ActionCreator.setOnline(true));
-                }
-            })
-            .catch(() => {
-                dispatch(ActionCreator.setOnline(false))
-            })
-    },
     // Запрос для обновления экрана при удалении лампы (можно отправлять хоть куда)
-    reloadPage: (link: string): ThunkType => (dispatch, getState, api) => {
-        return api.post(`/${link}`)
+    reloadPage: (link: string): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.getMac.get(`/${link}`)
             .then((response: any) => {
                 if (response.status >= 200 && response.status <= 300) {
                     // Добавляю существующие лампы, так как необходимо обновление экрана
@@ -186,18 +260,32 @@ const Operation = {
                 dispatch(ActionCreator.getError(errorText));
             })
     },
+    // отправка данных с приложения
+    // отправляется на аip адрес, который был получен из метода arp.toIp()
+    sendData: (link: string, object: { currentValue?: number | string | HsvColor }): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lumpIp.post(`/192.168.2.47/${link}`, object)
+            .then((response: any) => {
+                if (response.status >= 200 && response.status <= 300) {
+                    console.log(`Данные отправились`);
+                }
+            })
+            .catch((error: Error) => {
+                let errorText = `Произошла ошибка при отправке данных: ${error}`;
+                dispatch(ActionCreator.getError(errorText));
+            })
+    }
 };
 
 const ActionCreator = {
-    // Добавление ламп из LocalStorage или всего массива ламп в общий массив ламп
+    // Добавление ламп из AsyncStorage или всего массива ламп в общий массив ламп
     loadLampsAC: (data: LampType[]) => {
         return {
             type: `LOAD_LAMPS`,
             payload: data
         } as const   
     },
-    // Устанавливаем новый массив ip-адресов ламп, которые есть на данный момент в LocalStorage
-    setAllIP: (data: any) => {
+    // Устанавливаем новый массив ip-адресов ламп, которые есть на данный момент в AsyncStorage
+    setAllIP: (data: string[] | any) => {
         return {
             type: `SET_ALL_IP`,
             payload: data
@@ -236,7 +324,7 @@ const ActionCreator = {
         type: `CLEAR_LAMP_SCREEN`
     } as const),
     // Установка ip-адреса новой лампы в массив ip-адресов
-    setIP: (ip: string) => {
+    setIP: (ip: string | null | undefined) => {
         return {
             type: `SET_IP`,
             payload: ip

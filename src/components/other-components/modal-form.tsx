@@ -5,8 +5,6 @@ import { useDispatch } from 'react-redux';
 import { ActionCreator, Operation } from '../../reducer';
 import { Spinner } from '../control-components/spinner';
 
-const LINK = `192.168.1.1`;
-
 type ModalFormType = {
     showForm: boolean, 
     setShowForm: React.Dispatch<React.SetStateAction<boolean>>, 
@@ -51,7 +49,7 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
             setModalVisible(false);
             dispatch(ActionCreator.setSpinner(spinner));
             // Запрос на получение нового объекта лампы
-            dispatch(Operation.addNewLamp(LINK, {
+            dispatch(Operation.addNewLamp({
                 name: value, 
                 password: password
             }));

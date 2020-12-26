@@ -6,12 +6,13 @@ import { createStore, applyMiddleware } from 'redux';
 import thunk from 'redux-thunk';
 
 import MainPageScreen from './src/screens/main-screen';
-import api from './src/axios';
+import globalApi from './src/axios';
 import { reducer } from './src/reducer';
 import { ErrorComponent } from './src/components/control-components/error-component';
 
-const store = createStore(reducer, applyMiddleware(thunk.withExtraArgument(api)));
+const store = createStore(reducer, applyMiddleware(thunk.withExtraArgument(globalApi)));
 
+// Функция подключения шрифтов в приложение
 async function loadApplication() {
   await Font.loadAsync({
     'skia': require('./assets/fonts/Skia.ttf'),
@@ -25,7 +26,7 @@ export default function App() {
   if (!isReady) {
     return <AppLoading 
       startAsync={loadApplication}
-      onError={(err) => console.log(`Ошибка`, err)}
+      onError={(err) => <ErrorComponent errorMessage={`Произошла ошибка при загрузке шрифтов`} />}
       onFinish={() => setIsReady(true)}
     />
   }

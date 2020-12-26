@@ -20,7 +20,7 @@ export const SliderColorPickerComponent: React.FC<SliderColorPickerComponentType
     const dispatch = useDispatch();
 
     let newRef;
-    let LINK = `${lampScreenObject.macAddress}/get_warmth`;
+    let LINK = `set_warmth`;
 
     const saveNewRef = (ref: any) => newRef = ref;
  

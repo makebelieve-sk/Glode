@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, FlatList, ScrollView, Alert } from 'react-native';
 import { useDispatch } from 'react-redux';
 import GestureRecognizer from 'react-native-swipe-gestures';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 //@ts-ignore
 import ToggleSwitch from 'toggle-switch-react-native';
 
@@ -25,7 +26,7 @@ type BodyComponentType = {
     setIpAddress: React.Dispatch<React.SetStateAction<string | null>>
 };
 
-const LINK = `192.168.1.1`;
+const LINK = `reload-page`;
 
 export const BodyComponent: React.FC<BodyComponentType> = ({
     toggle, 
@@ -40,6 +41,15 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
     getLampScreen,
     setIpAddress
 }) => {
+    // Изначально идет запрос на проверку состояний ламп, в сети они или нет
+    useEffect(() => {
+        ip.forEach((ipLamp: string | null | undefined) => {
+            if (ipLamp) {
+                dispatch(Operation.checkAlive(ipLamp));
+            }
+        });
+    }, []);
+
     const config = {
         velocityThreshold: 0.3,
         directionalOffsetThreshold: 80
@@ -49,7 +59,8 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
 
     const [ dataObjects, setDataObjects ] = useState<LampType[] | any>(data);
 
-    const pressHandler = (item: LampType) => {
+    // Функция обработки нажатия на лампу
+    const onPressLump = (item: LampType) => {
         setSecondScreen(item.title);
         setToggleState(item.toggleLamp);
         setIpAddress(item.macAddress);
@@ -58,19 +69,25 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
     // Происходит проверка состояния лампы, в сети она или нет
     if (ip && ip.length > 0) {
         setInterval(() => {
-            ip.map((ipLamp) => {
-                ipLamp = `${ipLamp}/check_alive`;
-                dispatch(Operation.getLamp(ipLamp));
+            ip.forEach((ipLamp: string | null | undefined) => {
+                if (ipLamp) {
+                    dispatch(Operation.checkAlive(ipLamp));
+                }
             });
         }, 5000);
     };
 
+    // Функция обработки удаления лампы
+    // Ламп удаляется из массива ламп и из хранилища телефона
     const deleteItemHanlder = (id: string) => {
-        dataObjects.map((item: any, index: number) => {
-            if (parseInt(item.id) === parseInt(id)) {
+        dataObjects.forEach((item: any, index: number) => {
+            if (item.id === id) {
                 data.splice(index, 1);
-                setDataObjects(data);
-                dispatch(ActionCreator.removeLamp(dataObjects));
+                ip.splice(index, 1);
+                // setDataObjects(data);
+                dispatch(ActionCreator.loadLampsAC(data));
+                dispatch(ActionCreator.setAllIP(ip));
+                AsyncStorage.removeItem(item.id)
                 // Необходимо обновление экрана при удалении лампы
                 // Для этого отправляю запрос хоть куда (на ip роутера)
                 dispatch(Operation.reloadPage(LINK));
@@ -80,6 +97,7 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
         });
     };
 
+    // Функция обработки свайпа на лево
     const onSwipeLeft = (id: string) => {
         return Alert.alert(
             "Удаление элемента",
@@ -101,6 +119,7 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
 
     let component: any;
 
+    // Если массив ламп не пустой, то показываем список ламп
     if (dataObjects && dataObjects.length > 0) {
         component = (
             <ScrollView style={styles.scrollView}>
@@ -110,50 +129,51 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
                         data={dataObjects}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => {
-                            let TOGGLELAMPLINK = `${item.macAddress}/toggle_lamp`;
-
+                            let TOGGLELAMPLINK = `${item.macAddress}/toggle`;
+                            let toggleLamp = item.toggleLamp === 'true' ? true : false;
                             return (
-                            <GestureRecognizer 
-                                onSwipeLeft={() => onSwipeLeft(item.id)}
-                                config={config}
-                                style={{
-                                    flex: 1,
-                                    width: `100%`
-                                }}
-                            >
-                                <View style={styles.elementWrapper}>
-                                    <TouchableOpacity 
-                                        onPress={() => {
-                                            dispatch(ActionCreator.setSpinner(spinner));
-                                            pressHandler(item);
-                                            getLampScreen(item);
-                                        }} 
-                                        style={styles.wrapperElementName}
-                                    >
-                                        { online ? 
-                                            <Text style={styles.isOnline}>В сети</Text> : 
-                                            <Text style={styles.notOnline}>Не в сети</Text>
-                                        }
-    
-                                        <Text style={styles.elementName}>{ item.title }</Text>
-                                    </TouchableOpacity>
-    
-                                    <View style={styles.wrapperButton}>
-                                        <ToggleSwitch
-                                            isOn={ toggle === null ? item.toggleLamp : toggle }
-                                            onColor="green"
-                                            offColor="#39383d"
-                                            label=""
-                                            labelStyle={{ color: "black", fontWeight: "900" }}
-                                            size="large"
-                                            onToggle={(isOn: boolean) => {
-                                                dispatch(Operation.toggleLamp(TOGGLELAMPLINK, isOn))
-                                                setToggle(isOn);
-                                            }}
-                                            />
-                                    </View>                    
-                                </View>
-                            </GestureRecognizer>
+                                <GestureRecognizer 
+                                    onSwipeLeft={() => onSwipeLeft(item.id)}
+                                    config={config}
+                                    style={{
+                                        flex: 1,
+                                        width: `100%`
+                                    }}
+                                >
+                                    <View style={styles.elementWrapper}>
+                                        <TouchableOpacity 
+                                            onPress={() => {
+                                                // При нажатии на лампу, показывается спиннер загрузки и создается экран лампы
+                                                dispatch(ActionCreator.setSpinner(spinner));
+                                                onPressLump(item);
+                                                getLampScreen(item);
+                                            }} 
+                                            style={styles.wrapperElementName}
+                                        >
+                                            { online ? 
+                                                <Text style={styles.isOnline}>В сети</Text> : 
+                                                <Text style={styles.notOnline}>Не в сети</Text>
+                                            }
+        
+                                            <Text style={styles.elementName}>{ item.title }</Text>
+                                        </TouchableOpacity>
+        
+                                        <View style={styles.wrapperButton}>
+                                            <ToggleSwitch
+                                                isOn={ toggle === null ? toggleLamp : toggle }
+                                                onColor="green"
+                                                offColor="#39383d"
+                                                label=""
+                                                labelStyle={{ color: "black", fontWeight: "900" }}
+                                                size="large"
+                                                onToggle={(isOn: boolean) => {
+                                                    dispatch(Operation.toggleLamp(TOGGLELAMPLINK, isOn))
+                                                    setToggle(isOn);
+                                                }}
+                                                />
+                                        </View>                    
+                                    </View>
+                                </GestureRecognizer>
                         )}}
                     />
     

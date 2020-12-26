@@ -20,7 +20,7 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
 
     let list = lampScreenObject.list;
     let speed = lampScreenObject.speed;
-    let LINK = `${lampScreenObject.macAddress}/get_mode`;
+    let LINK = `set_effect`;
 
     const [ sliderValueSpeed, setSliderValueSpeed ] = useState<number | number[]>(parseInt(speed.currentValue));
 
@@ -51,7 +51,7 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                     openModal();
                 }}>
                     <View style={styles.textWrapper}>
-                        <Text style={styles.textMode}>Статический режим</Text>
+                        <Text style={styles.textMode}>Стат. режим</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -60,7 +60,7 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                     openModal();
                 }}>
                     <View style={styles.textWrapper}>
-                        <Text style={styles.textMode}>Динамический режим</Text>
+                        <Text style={styles.textMode}>Дин. режим</Text>
                     </View>                    
                 </TouchableOpacity>
             </View>           

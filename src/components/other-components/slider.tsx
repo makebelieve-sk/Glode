@@ -17,8 +17,8 @@ type SliderComponentType = {
 };
 
 export const SliderComponent: React.FC<SliderComponentType> = ({ slider, macAddress, sliderValue, setSliderValue, speed }) => {
-    let LINK = `${macAddress}/get_brightness`;
-    speed ? LINK = `${macAddress}/get_speed` : null;
+    let LINK = `set_brightness`;
+    speed ? LINK = `set_speed` : null;
 
     const dispatch = useDispatch();
 
@@ -36,9 +36,9 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ slider, macAddr
                 <View style={styles.container}>
                     <Slider
                         animateTransitions
-                        minimumValue={parseInt(slider.min)}
-                        step={parseInt(slider.step)}
-                        maximumValue={parseInt(slider.max)}
+                        minimumValue={0}
+                        step={1}
+                        maximumValue={10}
                         minimumTrackTintColor="#fff"
                         thumbStyle={styles.thumb}
                         trackStyle={styles.track}

@@ -29,7 +29,7 @@ export const AddLamp = () => {
                             <ModalForm showForm={showForm} setShowForm={setShowForm} setModalVisible={setModalVisible} /> : 
 
                             <View style={styles.modalView}>
-                                <Text style={styles.modalText}>ПРАВИЛЬНАЯ СЕТЬ LAMPA?</Text> 
+                                <Text style={styles.modalText}>Вы подключены к сети лампы?</Text> 
 
                                 <View style={styles.flexButtons}>
                                     <TouchableHighlight

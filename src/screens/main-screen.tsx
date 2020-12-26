@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { connect } from 'react-redux';
-import { AsyncStorage } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { HelloScreen } from './hello-screen';
 import { MenuScreen } from './menu-screen';
@@ -23,8 +23,7 @@ type mapDispatchPropsType = {
   getLampScreen: (item: LampType) => any,
   clearLampScreen: () => any,
   loadLampsAC: (data: any[]) => any,
-  setIP: (ip: any) => any,
-  clearIP: () => any
+  setIP: (ip: any) => any
 };
 
 type MainPageScreenProps = mapStatePropsType & mapDispatchPropsType;
@@ -40,15 +39,16 @@ export const MainPageScreen: React.FC<MainPageScreenProps> = ({
   getLampScreen, 
   clearLampScreen, 
   loadLampsAC,
-  setIP,
-  clearIP
+  setIP
 }) => {
   let component;
 
+  // Проверяем наличие объектов ламп в хранилище телефона
+  // Если лампы есть, то пушим существующие лампы в массив ламп, и показываем экран с лампами (MenuScreen)
+  // Если ламп нет, то ничего не возвращаем
   useEffect(() => {
     let allLamps: any = [];
-    let arrMac: any = [];
-    AsyncStorage.removeItem(`lamp`)
+    let arrIp: any = [];
 
     async function fetchData() {
       const retrieveData = async () => {
@@ -56,16 +56,16 @@ export const MainPageScreen: React.FC<MainPageScreenProps> = ({
           AsyncStorage.getAllKeys((err, keys: any) => {
             AsyncStorage.multiGet(keys, (err, stores: any) => {
               stores.map((result: any, i: any, store: any) => {
-                // Для каждой лампы, которая есть в LocalStorage
+                // Для каждой лампы, которая есть в AsyncStorage
                 let value = store[i][1];
                 value = JSON.parse(value);
-                let ip = value.macAddress;//здесь находим ip адрес по известному мак-адресу
-                arrMac.push(ip);
+
+                arrIp.push(value.macAddress);
                 allLamps.push(value);
               }); 
 
               // добавляем в массив всех ip-адресов ip-адрес лампы из LocalStorage
-              setIP(arrMac);
+              setIP(arrIp);
               // добавляем в массив всех ламп лампу из LocalStorage
               loadLampsAC(allLamps);
             });
@@ -76,16 +76,18 @@ export const MainPageScreen: React.FC<MainPageScreenProps> = ({
       };
 
       retrieveData();
-      // Зачем то очищаю весь массив ip-адресов???????????????????????
-      clearIP();
     };
     
     fetchData();
   }, []);
 
+  // Если есть ошибка, показываем компонент с ошибкой
+  // Если в данный момент идет загрузка, то показываем компонент спиннера загрузки
+  // Если в данный момент массив статических адресов лампы не пустой, то показываем экран ламп (MenuScreen)
+  // Если в данный момент массив статических адресов ламп пустой, то показывыаем начальный экран
   errorMessage ? component = <ErrorComponent errorMessage={errorMessage} /> :
   isLoadingLamps ? component = <Spinner /> : 
-  lamps && lamps.length > 0 ? component = (
+  ip && ip.length > 0 ? component = (
     <MenuScreen
         lamps={lamps} 
         lampScreenObject={lampScreenObject}
@@ -115,8 +117,7 @@ const mapDispatchToProps = (dispatch: any) => ({
   getLampScreen: (item: LampType) => dispatch(ActionCreator.getLampScreen(item)),
   clearLampScreen: () => dispatch(ActionCreator.clearLampScreen()),
   loadLampsAC: (data: any[]) => dispatch(ActionCreator.loadLampsAC(data)),
-  setIP: (ip: any) => dispatch(ActionCreator.setAllIP(ip)),
-  clearIP: () => dispatch(ActionCreator.clearIP())
+  setIP: (ip: any) => dispatch(ActionCreator.setAllIP(ip))
 });
 
 export default connect<mapStatePropsType, mapDispatchPropsType, {}, StateType>(mapStateToProps, mapDispatchToProps)(MainPageScreen);

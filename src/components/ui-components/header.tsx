@@ -29,12 +29,14 @@ export const Header: React.FC<HeaderType> = ({
     setToggleState, 
     clearLampScreen 
 }) => {
-    
     const dispatch = useDispatch();
 
-    let TOGGLELAMPLINK = `${ipAddress}/toggle_lamp`;
+    let TOGGLELAMPLINK = `${ipAddress}/toggle`;
 
-    const handlePress = () => {
+    let toggleLamp = toggleState ? true : false;
+
+    // Функция обработки нажатия кнопки "Назад"
+    const goBack = () => {
         setSecondScreen(null);
         setToggleState(null);
         setIpAddress(null);
@@ -66,7 +68,7 @@ export const Header: React.FC<HeaderType> = ({
 
             <View style={styles.subTextHeaderMainSecond}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => handlePress()}>
+                    <TouchableOpacity onPress={() => goBack()}>
                         <SimpleLineIcons name="arrow-left-circle" size={48} color="#fff" />
                     </TouchableOpacity>
                 </View> 
@@ -78,7 +80,7 @@ export const Header: React.FC<HeaderType> = ({
                 <View style={styles.headerRight}>
                     <TouchableOpacity onPress={() => alert(1)}>
                         <ToggleSwitch
-                            isOn={ toggle === null ? toggleState : toggle }
+                            isOn={ toggle === null ? toggleLamp : toggle }
                             onColor="green"
                             offColor="#39383d"
                             label=""
