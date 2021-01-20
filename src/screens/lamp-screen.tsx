@@ -1,20 +1,28 @@
 import React from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
+import { useSelector } from 'react-redux';
 
 import { CommonLampComponent } from '../components/helpers/common-lamp-component';
 import { ColoredLampComponent } from '../components/helpers/colored-lamp-component';
-import { LampType } from '../types';
+import { DinamicFildsLampType, LampType, StateType } from '../types';
 
 type LampScreenType = {
-    lampScreenObject: LampType
+    lampScreenObject: DinamicFildsLampType
 };
 
-export const LampScreen: React.FC<LampScreenType> = ({ lampScreenObject }) => {    
+export const LampScreen: React.FC<LampScreenType> = ({ lampScreenObject }) => {
+    const lamps = useSelector((state: StateType) => state.lamps);    
     let resultArray = [];
-    
-    if (lampType.has(lampScreenObject.type)) {
-        resultArray.push(lampType.get(lampScreenObject.type)(lampScreenObject));
-    };
+
+    let lamp = lamps.find((lamp: LampType) => {
+        return lamp.lampId === lampScreenObject.id;
+    })
+
+    if (lamp) {
+        if (lampType.has(lamp.lampType)) {
+            resultArray.push(lampType.get(lamp.lampType)(lampScreenObject));
+        };
+    }
 
     return (
         <ScrollView style={styles.scrollView}>
@@ -27,15 +35,15 @@ export const LampScreen: React.FC<LampScreenType> = ({ lampScreenObject }) => {
     );
 };
 
-const commonLamp = (lampScreenObject: any) => {
-    return <CommonLampComponent lampScreenObject={lampScreenObject} key={`commonLamp`} />;
+const commonLamp = (lampScreenObject: DinamicFildsLampType) => {
+    return <CommonLampComponent lampScreenObject={lampScreenObject} key={`mono-${lampScreenObject.id}`}/>;
 };
 
-const coloredLamp = (lampScreenObject: any) => {
-    return <ColoredLampComponent lampScreenObject={lampScreenObject} key={`coloredLamp`} />
+const coloredLamp = (lampScreenObject: DinamicFildsLampType) => {
+    return <ColoredLampComponent lampScreenObject={lampScreenObject} key={`color-${lampScreenObject.id}`}/>
 };
 
-const lampType = new Map<string | any, LampType | any>([[`common`, commonLamp], [`colored`, coloredLamp]]);
+const lampType = new Map<string, DinamicFildsLampType | any>([[`mono`, commonLamp], [`color`, coloredLamp]]);
 
 const styles = StyleSheet.create({
     wrapperLampScreen: {

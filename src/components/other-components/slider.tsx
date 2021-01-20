@@ -1,26 +1,32 @@
 import React from 'react';
 import { StyleSheet, Text, View, Dimensions } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { Slider } from "@miblanchard/react-native-slider";
-
 import { Fontisto } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
 
-import { Operation } from '../../reducer';
+import client from '../../MQTTConnection';
+import { DinamicFildsLampType, StateType } from '../../types';
+import { ActionCreator } from '../../reducer';
 
 type SliderComponentType = {
-    slider: any, 
     sliderValue: number | number[], 
     setSliderValue: React.Dispatch<React.SetStateAction<number | number[]>>, 
     speed: boolean,
-    macAddress: string
+    lampId: string,
 };
 
-export const SliderComponent: React.FC<SliderComponentType> = ({ slider, macAddress, sliderValue, setSliderValue, speed }) => {
-    let LINK = `set_brightness`;
-    speed ? LINK = `set_speed` : null;
-
+export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, setSliderValue, speed, lampId }) => {
+    const {login, dinLamp} = useSelector((state: StateType) => ({
+        login: state.login,
+        dinLamp: state.dinLamps
+    }));    
     const dispatch = useDispatch();
+
+    let characteristic = `brightness`;
+    speed ? characteristic = `speed` : null;
 
     return (
         <View style={styles.mainWrapper}>
@@ -37,18 +43,33 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ slider, macAddr
                     <Slider
                         animateTransitions
                         minimumValue={0}
-                        step={1}
-                        maximumValue={10}
+                        step={25}
+                        maximumValue={255}
                         minimumTrackTintColor="#fff"
                         thumbStyle={styles.thumb}
                         trackStyle={styles.track}
                         value={sliderValue}
                         onValueChange={sliderValue => {
                             setSliderValue(sliderValue);
-                            dispatch(Operation.sendData(LINK, {
-                                currentValue: sliderValue[0]
-                            }));
-                            console.log('Обычный', sliderValue[0])
+
+                            let topic = `lamp/${login}/${lampId}/${characteristic}`;
+
+                            // Отправка сообщения на mqtt сервер
+                            const message = new Message(JSON.stringify(sliderValue[0]));
+                            message.destinationName = topic;
+                            client.send(message);
+
+                            let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                                return lamp.id === lampId;
+                            });
+
+                            speed ? currentLamp.speed = sliderValue[0] : currentLamp.brightness = sliderValue[0];
+
+                            let indexLamp = dinLamp.indexOf(currentLamp);
+
+                            if (currentLamp && indexLamp >= 0) {
+                                dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
+                            }
                         }}
                     />
                 </View>

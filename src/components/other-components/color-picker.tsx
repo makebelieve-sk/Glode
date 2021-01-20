@@ -1,20 +1,28 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Dimensions } from 'react-native';
-import { ColorPicker, toHsv, fromHsv } from 'react-native-color-picker';
-import { useDispatch } from 'react-redux';
+import { ColorPicker, fromHsv } from 'react-native-color-picker';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
 
-import { Operation } from '../../reducer';
+import client from '../../MQTTConnection';
+import { DinamicFildsLampType, StateType } from '../../types';
+import { ActionCreator } from '../../reducer';
 
 type ColorPickerComponentType = {
     colorPicker: string,
-    macAddress: string
+    lampId: string
 };
 
-export const ColorPickerComponent: React.FC<ColorPickerComponentType> = ({ macAddress, colorPicker }) => {
+export const ColorPickerComponent: React.FC<ColorPickerComponentType> = ({ colorPicker, lampId }) => {
+    const {login, dinLamp} = useSelector((state: StateType) => ({
+        login: state.login,
+        dinLamp: state.dinLamps,
+    }));    
     const dispatch = useDispatch();
+    
     const [ color, setColor ] = useState<string>(colorPicker);
-
-    let LINK = `${macAddress}/get_color`;
+    const characteristic = `color-picker`;
 
     return <ColorPicker
         onColorSelected={color => alert(`Цвет: ${color}`)}
@@ -23,11 +31,26 @@ export const ColorPickerComponent: React.FC<ColorPickerComponentType> = ({ macAd
         color={color}
         onColorChange={(color) => {
             let fromHsvColor = fromHsv(color); 
-            setColor(fromHsvColor);                      
-            dispatch(Operation.sendData(LINK, {
-                currentValue: fromHsvColor
-            }));
-            console.log('Цвет rgb:', fromHsvColor);
+            setColor(fromHsvColor);
+
+            let topic = `lamp/${login}/${lampId}/${characteristic}`;
+
+            // Отправка сообщения на mqtt сервер
+            const message = new Message(JSON.stringify(fromHsvColor));
+            message.destinationName = topic;
+            client.send(message);
+
+            let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                return lamp.id === lampId;
+            });
+
+            currentLamp.colorPicker = fromHsvColor;
+
+            let indexLamp = dinLamp.indexOf(currentLamp);
+
+            if (currentLamp && indexLamp >= 0) {
+                dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
+            }
         }}
     />
 };

@@ -14,7 +14,7 @@ export const OpenUrlButton: React.FC<OpenUrlButtonType> = ({ children }) => {
         if (supported) {
             await Linking.openURL(URL);
         } else {
-            Alert.alert(`Don't know how to open this URL: ${URL}`);
+            Alert.alert(`Произошла ошибка при открытии страницы ${URL}`);
         }
     }, [URL]);
 

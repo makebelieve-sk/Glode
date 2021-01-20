@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TextInput, TouchableHighlight } from 'react-nat
 import { useDispatch } from 'react-redux';
 
 import { ActionCreator, Operation } from '../../reducer';
-import { Spinner } from '../control-components/spinner';
 
 type ModalFormType = {
     showForm: boolean, 
@@ -18,9 +17,6 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
     const [ textInvalid, setTextInvalid ] = useState<string | null>(null);
 
     const refLogin = useRef<any>();
-    const refPassword = useRef<any>();
-
-    const spinner = <Spinner />;
 
     let component: JSX.Element | null = (
         <View style={styles.invalidBlock}>
@@ -34,6 +30,7 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
         refLogin.current.focus();
     }, []);
 
+    // Функция клика на кнопку "Отправить"
     const pressHandler = () => {
         if (value === '' && password === '') {
             setTextInvalid(` Введите логин и пароль`);
@@ -47,13 +44,9 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
         } else {
             setShowForm(!showForm);
             setModalVisible(false);
-            dispatch(ActionCreator.setSpinner(spinner));
-            // Запрос на получение нового объекта лампы
-            dispatch(Operation.addNewLamp({
-                name: value, 
-                password: password
-            }));
-        }        
+            // dispatch(ActionCreator.setLoading());
+            dispatch(Operation.addNewLamp({name: value, password: password}));
+        }
     };
 
     return (
@@ -75,7 +68,6 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
                     value={password} 
                     onChangeText={text => onChangePassword(text)} 
                     placeholder="Введите пароль сети"
-                    ref={refPassword} 
                 />
             </View>
 

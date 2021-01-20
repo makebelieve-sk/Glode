@@ -16,6 +16,6 @@ const styles = StyleSheet.create({
     wrapperSpinner: {
         flex: 1,
         alignItems: `center`,
-        justifyContent: `center`,
+        justifyContent: `center`
     }
 })

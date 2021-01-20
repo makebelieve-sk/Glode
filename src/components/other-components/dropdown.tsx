@@ -1,28 +1,67 @@
-import React, { Fragment, useState } from 'react';
+import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';//@ts-ignore
 import { ModalSelectList } from 'react-native-modal-select-list';
-import { useDispatch } from 'react-redux';
-import { SimpleLineIcons } from '@expo/vector-icons'; 
+import { SimpleLineIcons } from '@expo/vector-icons';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
 
 import { SliderComponent } from './slider';
-import { Operation } from '../../reducer';
-import { LampType } from '../../types';
+import { DinamicFildsLampType, LampType, StateType } from '../../types';
+import client from '../../MQTTConnection';
+import { ActionCreator } from '../../reducer';
+
+const characteristic = 'effect';
 
 type DropdownType = {
-    lampScreenObject: LampType | any
+    lampScreenObject: DinamicFildsLampType,
 };
-   
+
 export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
+    const {login, dinLamp, lamps} = useSelector((state: StateType) => ({
+        login: state.login,
+        dinLamp: state.dinLamps,
+        lamps: state.lamps
+    }));    
     const dispatch = useDispatch();
-    const [ stateValue, setStateValue ] = useState<null | string>(null);
-    const [ dinValue, setDinValue ] = useState<null | string>(null);
-    const [ stateMode, setStateMode ] = useState<boolean>(true);
 
-    let list = lampScreenObject.list;
+    let lamp = lamps.find((lamp: LampType) => {
+        return lampScreenObject.id === lamp.lampId;
+    });
+
+    let staticModeArr: any = [];
+    let dinArr: any = [];
+    let effectName: any = {
+        label: '',
+        value: -1
+    };
+
+    if (lamp) {
+        lamp.list.staticMode.forEach((obj) => {
+            staticModeArr.push({ label: obj.label, value: JSON.stringify(obj.value) });
+        });
+
+        lamp.list.dinMode.forEach((obj) => {
+            dinArr.push({ label: obj.label, value: JSON.stringify(obj.value) });
+        });
+
+        effectName = lamp.list.staticMode.find((obj) => {
+            return obj.value == lampScreenObject.currentValue;
+        });
+
+        if (!effectName || effectName.label == '') {
+            effectName = lamp.list.dinMode.find((obj) => {
+                return obj.value == lampScreenObject.currentValue;
+            });
+        }
+    }
+
+    const [ dinValue, setDinValue ] = useState<boolean>(lampScreenObject.isDynamic);
+    const [ title, setTitle ] = useState<string>('');
+
     let speed = lampScreenObject.speed;
-    let LINK = `set_effect`;
 
-    const [ sliderValueSpeed, setSliderValueSpeed ] = useState<number | number[]>(parseInt(speed.currentValue));
+    const [ sliderValueSpeed, setSliderValueSpeed ] = useState<number | number[]>(parseInt(speed));
 
     let modalRef: any;
 
@@ -30,24 +69,23 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
     const saveModalRef = (ref: any) => modalRef = ref;
 
     return (
-      <Fragment>
+      <>
         <SafeAreaView style={styles.blockWrapper}>
-            { dinValue ? 
+            { dinValue ?
                 <SliderComponent
-                    slider={speed}
                     sliderValue={sliderValueSpeed}
                     setSliderValue={setSliderValueSpeed}
-                    macAddress={lampScreenObject.macAddress}
                     speed={true}
+                    lampId={lampScreenObject.id}
                 /> : null
             }
             <View style={styles.textWrapper}>
-                <Text style={styles.textCurrentMode}>ТЕКУЩИЙ РЕЖИМ: { stateValue ? stateValue : dinValue ? dinValue : list.currentValue }</Text>
+                <Text style={styles.textCurrentMode}>ТЕКУЩИЙ РЕЖИМ: { title }</Text>
             </View>
 
             <View style={styles.flexBlockWrapper}>
                 <TouchableOpacity style={styles.buttonMode} onPress={() => {
-                    setStateMode(true);
+                    setDinValue(false);
                     openModal();
                 }}>
                     <View style={styles.textWrapper}>
@@ -56,53 +94,105 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.buttonMode} onPress={() => {
-                    setStateMode(false);
+                    setDinValue(true);
                     openModal();
                 }}>
                     <View style={styles.textWrapper}>
                         <Text style={styles.textMode}>Дин. режим</Text>
-                    </View>                    
+                    </View>
                 </TouchableOpacity>
-            </View>           
+            </View>
         </SafeAreaView>
 
-        { stateMode ? 
+        { !dinValue ?
             <ModalSelectList
                 ref={saveModalRef}
                 placeholder={"Поиск..."}
                 closeButtonComponent={<SimpleLineIcons name="arrow-left-circle" size={48} color="#fff" />}
-                options={list.stateMode}
+                options={staticModeArr}
                 onSelectedOption={(stateValue: string) => {
-                    setStateValue(stateValue);
-                    setDinValue(null);
-                    dispatch(Operation.sendData(LINK, {
-                        currentValue: stateValue
-                    }))
-                    console.log('Режим: ', stateValue)
+                    let currentObj = staticModeArr.find((obj: { label: string, value: string }) => {
+                        return obj.value === stateValue;
+                    });
+
+                    let result;
+
+                    if (currentObj) {
+                        result = currentObj.label;
+                    };
+
+                    setTitle(result);
+                    setDinValue(false);
+                    console.log('Режим: ', result);
+
+                    let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+
+                    // Отправка сообщения на mqtt сервер
+                    const message = new Message(stateValue);
+                    message.destinationName = topic;
+                    client.send(message);
+                    
+                    let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                        return lamp.id === lampScreenObject.id;
+                    });
+        
+                    currentLamp.currentValue = result;
+        
+                    let indexLamp = dinLamp.indexOf(currentLamp);
+        
+                    if (currentLamp && indexLamp >= 0) {
+                        dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
+                    }
                 }}
                 disableTextSearch={false}
                 numberOfLines={10}
                 headerTintColor={"#6bc4fe"}
-            /> : 
+            /> :
             <ModalSelectList
                 ref={saveModalRef}
                 placeholder={"Поиск..."}
                 closeButtonComponent={<SimpleLineIcons name="arrow-left-circle" size={48} color="#fff" />}
-                options={list.dinMode}
+                options={dinArr}
                 onSelectedOption={(dinValue: string) => {
-                    setDinValue(dinValue);
-                    setStateValue(null);
-                    dispatch(Operation.sendData(LINK, {
-                        currentValue: dinValue
-                    }))
-                    console.log('Режим: ', dinValue)
+                    let currentObj = dinArr.find((obj: { label: string, value: string }) => {
+                        return obj.value === dinValue;
+                    });
+
+                    let result;
+
+                    if (currentObj) {
+                        result = currentObj.label;
+                    };
+
+                    setTitle(result);
+                    setDinValue(true);
+                    console.log('Режим: ', result)
+
+                    let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+
+                    // Отправка сообщения на mqtt сервер
+                    const message = new Message(dinValue);
+                    message.destinationName = topic;
+                    client.send(message);
+
+                    let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                        return lamp.id === lampScreenObject.id;
+                    });
+        
+                    currentLamp.currentValue = result;
+        
+                    let indexLamp = dinLamp.indexOf(currentLamp);
+        
+                    if (currentLamp && indexLamp >= 0) {
+                        dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
+                    }
                 }}
                 disableTextSearch={false}
                 numberOfLines={10}
                 headerTintColor={"#6bc4fe"}
-            /> 
-        }        
-      </Fragment>
+            />
+        }
+      </>
     );
 };
 

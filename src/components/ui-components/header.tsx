@@ -1,46 +1,34 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { SimpleLineIcons } from '@expo/vector-icons'; 
 //@ts-ignore
 import ToggleSwitch from 'toggle-switch-react-native';
-import { Operation } from '../../reducer';
+import { StateType } from '../../types';
+import { ActionCreator } from '../../reducer';
 
 type HeaderType = {
     toggle: boolean | null, 
     setToggle: React.Dispatch<React.SetStateAction<boolean | null>>,
-    secondScreen: string | null, 
     toggleState: boolean | null,
-    ipAddress: string | null,
-    setSecondScreen: React.Dispatch<React.SetStateAction<string | null>>,
     setToggleState: React.Dispatch<React.SetStateAction<boolean | null>>, 
-    setIpAddress: React.Dispatch<React.SetStateAction<string | null>>,
-    clearLampScreen: () => any
 };
 
 export const Header: React.FC<HeaderType> = ({
     toggle, 
     setToggle, 
-    ipAddress, 
-    toggleState, 
-    secondScreen, 
-    setIpAddress, 
-    setSecondScreen, 
-    setToggleState, 
-    clearLampScreen 
+    toggleState,
+    setToggleState
 }) => {
-    const dispatch = useDispatch();
-
-    let TOGGLELAMPLINK = `${ipAddress}/toggle`;
-
     let toggleLamp = toggleState ? true : false;
+
+    const lampScreenObject = useSelector((state: StateType) => state.lampScreenObject);
+    const dispatch = useDispatch();
 
     // Функция обработки нажатия кнопки "Назад"
     const goBack = () => {
-        setSecondScreen(null);
         setToggleState(null);
-        setIpAddress(null);
-        clearLampScreen();
+        dispatch(ActionCreator.clearLampScreen());
     };
     
     let component = (
@@ -58,7 +46,7 @@ export const Header: React.FC<HeaderType> = ({
         </View>
     );
 
-    secondScreen ? component = (
+    lampScreenObject ? component = (
         <View style={styles.headerSecondScreen}>
             <View style={styles.textBlockSecond}>
                 <View style={styles.subTextBlock}>
@@ -73,8 +61,8 @@ export const Header: React.FC<HeaderType> = ({
                     </TouchableOpacity>
                 </View> 
 
-                <View style={styles.headerMid}>    
-                    <Text style={styles.textHeader}>{ secondScreen }</Text>
+                <View style={styles.headerMid}>
+                    <Text style={styles.textHeader}>{ lampScreenObject.title }</Text>
                 </View>
 
                 <View style={styles.headerRight}>
@@ -87,7 +75,6 @@ export const Header: React.FC<HeaderType> = ({
                             labelStyle={{ color: "black", fontWeight: "900" }}
                             size="large"
                             onToggle={(isOn: boolean) => {
-                                dispatch(Operation.toggleLamp(TOGGLELAMPLINK, isOn))
                                 setToggle(isOn);
                             }}
                         />
@@ -154,11 +141,6 @@ const styles = StyleSheet.create({
         alignItems: `center`,
         justifyContent: `center`,
     },
-    textHeaderMain: {
-        fontSize: 80,
-        fontFamily: 'skia',
-        color: `#fff`
-    },
     textHeader: {
         fontSize: 18,
         fontFamily: 'merri-weather-bold',
@@ -178,4 +160,4 @@ const styles = StyleSheet.create({
         alignItems: `center`,
         justifyContent: `space-between`
     }
-  });
+});

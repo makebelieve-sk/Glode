@@ -1,147 +1,116 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HsvColor } from "react-native-color-picker/dist/typeHelpers";
-import FileViewer from 'react-native-file-viewer';
-// import arp from '@network-utils/arp-lookup';
 
-import { LampType, ActionCreatorType, ThunkType } from "./types";
+import { LampType, ActionCreatorType, ThunkType, DinamicFildsLampType } from "./types";
 
 type initialStateLampType = {
     lamps: LampType[],
-    isLoadingLamps: boolean,
+    dinLamps: DinamicFildsLampType[],
+    isLoading: boolean,
     errorMessage: null | string,
     lampScreenObject: null | any,
-    ip: string[],
-    online: boolean,
-    spinner: any
+    isAuth: boolean,
+    login: null | string,
+    authInvalidMessage: null | string
 };
 
 const initialStateLamp: initialStateLampType = {
     lamps: [],
-    isLoadingLamps: true,
+    dinLamps: [],
+    isLoading: false,
     errorMessage: null,
     lampScreenObject: null,
-    ip: [],
-    online: false,
-    spinner: null
+    isAuth: false,
+    login: null,
+    authInvalidMessage: null,
 };
 
 const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
     switch(action.type) {
-        case `LOAD_LAMPS`:
+        case 'GET_ALL_LAMPS':
             return Object.assign({}, state, {
-                lamps: action.payload ? action.payload : [],
-                isLoadingLamps: !action.payload
+                lamps: [ ...action.payload ],
+                isLoading: false
             });
-        case `PUSH_LAMP`:
+        case 'ADD_LAMP':
             return Object.assign({}, state, {
-                lamps: [...state.lamps, action.payload]
+                lamps: [ ...state.lamps, action.payload ],
+                isLoading: false
+            });
+        case 'ADD_DIN_LAMP':
+            let newIndex = action.index;
+            return Object.assign({}, state, {
+                dinLamps: [ ...state.dinLamps.slice(0, newIndex), action.payload, ...state.dinLamps.slice(newIndex + 1) ],
+                isLoading: false
+            });
+        case 'EDIT_LAMP':
+            return Object.assign({}, state, {
+                lamps: [ ...state.lamps.slice(0, action.index), action.payload, ...state.lamps.slice(action.index + 1) ],
+                isLoading: false
             });
         case `REMOVE_LAMP`:
+            let index = action.payload;
             return Object.assign({}, state, {
-                lamps: action.payload
+                lamps: [ ...state.lamps.slice(0, index), ...state.lamps.slice(index + 1) ],
+                isLoading: false
             });
         case `GET_ERROR`:
             return Object.assign({}, state, {
-                errorMessage: action.payload ? action.payload : null
+                errorMessage: action.payload ? action.payload : null,
+                isLoading: false
             });
         case `GET_LAMP_SCREEN`:
             return Object.assign({}, state, {
-                lampScreenObject: action.payload ? action.payload : null
+                lampScreenObject: action.payload ? action.payload : null,
+                isLoading: false
             });
         case `CLEAR_LAMP_SCREEN`:
             return Object.assign({}, state, {
-                lampScreenObject: null
-            });
-        case `SET_IP`:
-            return Object.assign({}, state, {
-                ip: [...state.ip, action.payload]
-            });
-        case `CLEAR_IP`:
-            return Object.assign({}, state, {
-                ip: []
-            });
-        case `SET_ALL_IP`:
-            return Object.assign({}, state, {
-                ip: action.payload
+                lampScreenObject: null,
+                isLoading: false
             });
         case `SET_ONLINE`:
             return Object.assign({}, state, {
                 online: action.payload ? action.payload : false
             });
-        case `SET_SPINNER`:
+        case `SET_AUTH`:
             return Object.assign({}, state, {
-                spinner: action.payload ? action.payload : null
+                authInvalidMessage: null,
+                isAuth: true,
+                login: action.payload,
+                isLoading: false,
             });
-        case `CLEAR_SPINNER`:
+        case `SET_INVALID_AUTH`:
             return Object.assign({}, state, {
-                spinner: null
+                authInvalidMessage: action.payload ? action.payload : null,
+                isAuth: false,
+                isLoading: false
+            });
+        case `SET_LOADING`:
+            return Object.assign({}, state, {
+                isLoading: true
             });
         default:
             return state;
     };
 };
 
-// Функция получения ip-адреса лампы (статического адреса лампы)
-const getIp = async (macAddress: string, dispatch: any) => {
-    // try {
-    //     if (arp.isMAC(macAddress)) {
-    //         return await arp.toIP(macAddress);
-    //     }
-    // } catch (error) {
-    //     let errorText = `Произошла ошибка при определении динамического адреса лампы: ${error}`;
-    //     dispatch(ActionCreator.getError(errorText));
-    // }
-    return `192.168.2.47`;
-}
-
 const Operation = {
-    // Добавление ip-адреса новой лампы
-    // Ответ - только один мак-адрес лампы (динамический адрес лампы)
-    // Задача - добавление в массив ip-адресов вычисленный ip-адрес лампы
-    addNewLamp: (object: { 
-        name?: string | undefined, 
-        password?: string | undefined 
-    } | null): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.getMac.post('/get-mac', object)
+    addNewLamp: (object: { name?: string | undefined, password?: string | undefined } | null): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.getMac.post('/', object)
             .then(async (response: any) => {
                 const data = response.data;
 
                 if (response.status >= 200 && response.status <= 300) {
-                    // Нахожу ip-адрес лампы (стаический адрес лампы)
-                    let ipAddress = getIp(data.macAddress, dispatch);
+                    console.log('data', data);
+                    const getUser = async () => {
+                        const user = await AsyncStorage.getItem('user');
 
-                    const path = '/proc/net/arp';
-                    FileViewer.open(path)
-                    .then((response: any) => {
-                        console.log(response);
-                    })
-                    .catch((error: Error) => {
-                        let errorText = `Произошла ошибка при нахождении ip адреса устройства: ${error}`;
-                        dispatch(ActionCreator.getError(errorText));
-                    })
-
-                    if (getState().ip && getState().ip.length > 0) {
-                        let el = getState().ip.find(async (ip: any) => {
-                            return ip === await ipAddress;
-                        })
-
-                        if (el) {
-                            alert('Такая лампа уже подключена!');
-                            dispatch(ActionCreator.clearSpinner());
-                            return null;
-                        } else {
-                            dispatch(ActionCreator.setIP(await ipAddress));
+                        if (user) {
+                            dispatch(Operation.getAllLamps(user));
                         }
-                    } else if (getState().ip && getState().ip.length === 0) {
-                        // Пушу найденный ip-адрес лампы в массив ip-адресов
-                        dispatch(ActionCreator.setIP(await ipAddress));
                     }
-
-                    if (getState().ip && getState().ip.length > 0) {
-                        getState().ip.forEach((ip: string) => {
-                            dispatch(Operation.loadLamp(ip));
-                        })
-                    }
+                    
+                    getUser();
                 }
             })
             .catch((error: Error) => {
@@ -149,160 +118,103 @@ const Operation = {
                 dispatch(ActionCreator.getError(errorText));
             })
     },
-    // Запрос на ip-адрес новой лампы
-    // Ответ - новый объект лампы
-    // Задача - {
-    //     Добавление нового объекта лампы в массив ламп,
-    //     Остановка спиннера загрузки, 
-    //     Запись нового объекта лампы в хранилище телефона
-    // }
-    loadLamp: (ip: string): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.lumpIp.post(`/${ip}`)
+    removeLamp: (object: { lampId: string }): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lamp.post('/remove', object)
+        .then((response: any) => {
+            const data = response.data;
+
+            if (response.status >= 200 && response.status <= 300) {
+                console.log(data.message);
+            }
+        })
+        .catch((error: Error) => {
+            let errorText = `Произошла ошибка при удалении лампы: ${error}`;
+            dispatch(ActionCreator.getError(errorText));
+        })
+    },
+    getAllLamps: (login: string | null): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.lamp.post(`/getall`, { login })
             .then((response: any) => {
                 const data = response.data;
 
                 if (response.status >= 200 && response.status <= 300) {
-                    let currentState = getState();
-
-                    if (currentState.ip && currentState.ip.length > 0) {
-                        data.macAddress = currentState.ip[currentState.ip.length - 1];
-                    }
-
-                    data.id = data.macAddress;
-
-                    // Добавление новой лампы в массив ламп
-                    dispatch(ActionCreator.pushLamp(data));
-
-                    // Добавление новой лампы в AsyncStorage
-                    AsyncStorage.setItem(data.id, JSON.stringify(data));
-
-                    // Остановка спиннера
-                    dispatch(ActionCreator.clearSpinner());
-
-                    // Происходит запись новой лампы в хранилище телефона
-                    const appLapms = async (data: any) => {
+                    dispatch(ActionCreator.getAllLamps(data));
+                }
+            })
+            .catch((error: Error) => {
+                let errorText = `Произошла ошибка при загрузке всех ламп: ${error}`;
+                dispatch(ActionCreator.getError(errorText));
+            })
+    },
+    // Авторизация пользователя
+    authorization: (auth: string, object: { login: string, pass: String }): ThunkType => (dispatch, getState, globalApi) => {
+        return globalApi.auth.post(`/${auth}`, object)
+            .then((response: any) => {
+                const data = response.data;
+                
+                if (response.status >= 200 && response.status <= 300 && data.login) {
+                    // Функция записи пользователя в хранилище телефона
+                    const setUser = async (login: string) => {
                         try {
-                            AsyncStorage.getAllKeys((err, keys: any) => {
-                                AsyncStorage.multiGet(keys, (err, stores: any) => {
-                                  stores.map((result: any, i: any, store: any) => {
-                                    // Для каждой лампы, которая есть в AsyncStorage мы проверяем совпадает ли новая лампа, 
-                                    // если совпадает, то не добавляем ее в AsyncStorage
-                                    let value = store[i][1];
-                                    value = JSON.parse(value);
-
-                                    let valueString = JSON.stringify(value);
-                                    let dataString = JSON.stringify(data);
-
-                                    if (valueString !== dataString) {
-                                        AsyncStorage.setItem(data.id, JSON.stringify(data));
-                                    } else {
-                                        return null;
-                                    }
-                                  });
-                                });
-                              });
+                            await AsyncStorage.setItem('user', login);
                         } catch (error) {
-                            let errorText = `Ошибка при загрузке данных из хранилища: ${error}`;
+                            let errorText = `Ошибка при сохранении пользователя: ${error}`;
                             dispatch(ActionCreator.getError(errorText));
                         }
                     };
 
-                    appLapms(data);
+                    setUser(data.login);
+                    dispatch(ActionCreator.setAuth(object.login));
                 }
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при загрузке лампы: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // Запрос на проверку лампы ("В сети" / "Не в сети")
-    // Если запрос дошел до лампы, то выставляес статус "В сети"
-    // При ошибке выставляем статус "Не в сети"
-    checkAlive: (ipLamp: string): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.lumpIp.get(`/${ipLamp}`)
-            .then((response: any) => {
-                const data = response.data;
 
-                if (response.status >= 200 && response.status <= 300) {
-                    dispatch(ActionCreator.setOnline(true));
-                }
-            })
-            .catch(() => {
-                dispatch(ActionCreator.setOnline(false))
-            })
-    },
-    // Запрос на включение/выключение лампы
-    // На данный момент ответ не интересен, так как состояине лампы одно на все компоненты, и изменяется везде
-    // Ответ - значения 0 или 1, при 0 - лампа на данный момент выключилась, при 1 - лампа на данный момент включилась
-    toggleLamp: (link: string, isOn: boolean): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.lumpIp.get(`/${link}`, isOn)
-            .then((response: any) => {
-                if (response.status >= 200 && response.status <= 300) {
-                    console.log(`Лампа изменила состояние с ${!isOn} на ${isOn}`);
-                }
+                // if (!response.ok) {
+                //     console.log('data.message', data.message)
+                //     dispatch(ActionCreator.setInvalidAuth(data.message));
+                // }
             })
             .catch((error: Error) => {
-                let errorText = `Ошибка при изменении состояния лампы: ${error}`;
+                console.log(error.message)
+                let errorText = `Произошла ошибка при авторизации: ${error}`;
                 dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // Запрос для обновления экрана при удалении лампы (можно отправлять хоть куда)
-    reloadPage: (link: string): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.getMac.get(`/${link}`)
-            .then((response: any) => {
-                if (response.status >= 200 && response.status <= 300) {
-                    // Добавляю существующие лампы, так как необходимо обновление экрана
-                    dispatch(ActionCreator.loadLampsAC(initialStateLamp.lamps));
-                }
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при обновлении приложения: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
-    },
-    // отправка данных с приложения
-    // отправляется на аip адрес, который был получен из метода arp.toIp()
-    sendData: (link: string, object: { currentValue?: number | string | HsvColor }): ThunkType => (dispatch, getState, globalApi) => {
-        return globalApi.lumpIp.post(`/192.168.2.47/${link}`, object)
-            .then((response: any) => {
-                if (response.status >= 200 && response.status <= 300) {
-                    console.log(`Данные отправились`);
-                }
-            })
-            .catch((error: Error) => {
-                let errorText = `Произошла ошибка при отправке данных: ${error}`;
-                dispatch(ActionCreator.getError(errorText));
-            })
+            });
     }
 };
 
 const ActionCreator = {
-    // Добавление ламп из AsyncStorage или всего массива ламп в общий массив ламп
-    loadLampsAC: (data: LampType[]) => {
+    // Добавление массива с лампами
+    getAllLamps:(lamps: object[]) => {
         return {
-            type: `LOAD_LAMPS`,
-            payload: data
-        } as const   
+            type: 'GET_ALL_LAMPS',
+            payload: lamps
+        } as const
     },
-    // Устанавливаем новый массив ip-адресов ламп, которые есть на данный момент в AsyncStorage
-    setAllIP: (data: string[] | any) => {
+    // Добавление новой лампы
+    addLamp: (object: LampType) => {
         return {
-            type: `SET_ALL_IP`,
-            payload: data
-        }
+            type: 'ADD_LAMP',
+            payload: object
+        } as const
     },
-    // Добавление новой лампы в массив ламп
-    pushLamp: (object: LampType) => {
+    // Добавление динамических полей лампы
+    addDinLamp: (index: number, object: DinamicFildsLampType) => {
         return {
-            type: `PUSH_LAMP`,
+            type: 'ADD_DIN_LAMP',
+            payload: object,
+            index: index
+        } as const
+    },
+    editLamp:(index: number, object: LampType) => {
+        return {
+            type: 'EDIT_LAMP',
+            index: index,
             payload: object
         } as const
     },
     // Удаление выбранной лампы из массива ламп
-    removeLamp: (array: any[]) => {
+    removeLamp: (index: number) => {
         return {
             type: `REMOVE_LAMP`,
-            payload: array
+            payload: index
         } as const
     },
     // Установка ошибки
@@ -313,7 +225,7 @@ const ActionCreator = {
         } as const
     },
     // Смена на экран лампы
-    getLampScreen: (object: LampType) => {
+    getLampScreen: (object: DinamicFildsLampType) => {
         return {
             type: `GET_LAMP_SCREEN`,
             payload: object
@@ -323,17 +235,6 @@ const ActionCreator = {
     clearLampScreen: () => ({
         type: `CLEAR_LAMP_SCREEN`
     } as const),
-    // Установка ip-адреса новой лампы в массив ip-адресов
-    setIP: (ip: string | null | undefined) => {
-        return {
-            type: `SET_IP`,
-            payload: ip
-        } as const
-    },
-    // Очищаю весь массив ip-адресов
-    clearIP: () => ({
-        type: `CLEAR_IP`
-    } as const),
     // Установка лампы "В сети/ Не в сети"
     setOnline: (isOnline: boolean) => {
         return {
@@ -341,16 +242,21 @@ const ActionCreator = {
             payload: isOnline
         } as const
     },
-    // Показ спиннера загрузки
-    setSpinner: (spinner: JSX.Element | null) => {
+    // Установка сообщения при проблеме авторизации
+    setInvalidAuth: (message: string) => {
         return {
-            type: `SET_SPINNER`,
-            payload: spinner
+            type: 'SET_INVALID_AUTH',
+            payload: message
         } as const
     },
-    // Очистка спиннера загрузки
-    clearSpinner: () => ({
-        type: `CLEAR_SPINNER`
+    // Установка авторизации пользователя
+    setAuth: (user: string) => ({
+        type: 'SET_AUTH',
+        payload: user
+    } as const),
+    // Установка спиннера загрузки
+    setLoading: () => ({
+        type: 'SET_LOADING',
     } as const)
 };
 

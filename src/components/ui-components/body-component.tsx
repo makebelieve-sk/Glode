@@ -1,198 +1,215 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, FlatList, ScrollView, Alert } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import GestureRecognizer from 'react-native-swipe-gestures';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 //@ts-ignore
 import ToggleSwitch from 'toggle-switch-react-native';
 
 import { AddLamp } from '../other-components/add-lamp';
 import { LampScreen } from '../../screens/lamp-screen';
 import { Spinner } from '../control-components/spinner';
-import { Operation, ActionCreator } from '../../reducer';
-import { LampType } from '../../types';
+import { ActionCreator, Operation } from '../../reducer';
+import { DinamicFildsLampType, LampType, StateType } from '../../types';
+import client from '../../MQTTConnection';
 
 type BodyComponentType = {
     toggle: boolean | null, 
     setToggle: React.Dispatch<React.SetStateAction<boolean | null>>,
-    data: LampType[] | any,
-    lampScreenObject: any,
-    ip: string[],
-    online: boolean,
-    spinner: JSX.Element | null,
-    setSecondScreen: React.Dispatch<React.SetStateAction<string | null>>,
-    getLampScreen: (item: LampType) => any,
     setToggleState: React.Dispatch<React.SetStateAction<boolean | null>>,
-    setIpAddress: React.Dispatch<React.SetStateAction<string | null>>
 };
-
-const LINK = `reload-page`;
 
 export const BodyComponent: React.FC<BodyComponentType> = ({
     toggle, 
     setToggle,
-    data, 
-    lampScreenObject, 
-    ip, 
-    online, 
-    spinner, 
-    setSecondScreen, 
     setToggleState,
-    getLampScreen,
-    setIpAddress
 }) => {
-    // Изначально идет запрос на проверку состояний ламп, в сети они или нет
-    useEffect(() => {
-        ip.forEach((ipLamp: string | null | undefined) => {
-            if (ipLamp) {
-                dispatch(Operation.checkAlive(ipLamp));
-            }
-        });
-    }, []);
+    let component: any;
 
     const config = {
         velocityThreshold: 0.3,
         directionalOffsetThreshold: 80
     };
 
+    const { lamps, isLoading, lampScreenObject, login, dinLamps } = useSelector((state: StateType) => ({
+        lamps: state.lamps,
+        dinLamps: state.dinLamps,
+        isLoading: state.isLoading,
+        lampScreenObject: state.lampScreenObject,
+        login: state.login
+    }));
     const dispatch = useDispatch();
 
-    const [ dataObjects, setDataObjects ] = useState<LampType[] | any>(data);
+    const [ online, setOnline ] = useState<{ id: string, alive: boolean }[]>([]);
 
-    // Функция обработки нажатия на лампу
-    const onPressLump = (item: LampType) => {
-        setSecondScreen(item.title);
-        setToggleState(item.toggleLamp);
-        setIpAddress(item.macAddress);
-    };
+    let onlineArr: { id: string, alive: boolean }[] = [];
 
-    // Происходит проверка состояния лампы, в сети она или нет
-    if (ip && ip.length > 0) {
-        setInterval(() => {
-            ip.forEach((ipLamp: string | null | undefined) => {
-                if (ipLamp) {
-                    dispatch(Operation.checkAlive(ipLamp));
+    // Получение полей динамических значений лампы
+    useEffect(() => {
+        let i = 0;
+        client.on('messageReceived', (message: any) => {
+            console.log('Текущий топик: ', message.destinationName);
+            console.log('Ответ: ', message.payloadString);
+
+            if (JSON.stringify(message.payloadString)[0] === '#') {
+                return null;
+            }
+
+            let responseMQTT = JSON.parse(message.payloadString);
+            
+            let main: string = message.destinationName.split('/')[0];
+            let lampId: string = message.destinationName.split('/')[2];
+            let characteristic: string = message.destinationName.split('/')[3];
+
+            if (main === 'online') {
+                let object = {
+                    id: lampId,
+                    alive: responseMQTT.alive
                 }
-            });
-        }, 5000);
+
+                let currentObj: any = onlineArr.find((onl) => {
+                    return onl.id === lampId;
+                });
+
+                let indexOf = onlineArr.indexOf(currentObj);
+
+                if (currentObj && indexOf >= 0) {
+                    onlineArr = [ ...onlineArr.slice(0, indexOf), object, ...onlineArr.slice(indexOf + 1) ];
+                } else {
+                    onlineArr.push(object);
+                }
+
+                setOnline(onlineArr);
+            }
+
+            if (main === 'lamp' && responseMQTT.constructor === Object && !characteristic) {
+                console.log('currentValue', responseMQTT.currentValue)
+                let objectDinLamp = {
+                    id: lampId,
+                    colorPicker: responseMQTT.colorPicker ? responseMQTT.colorPicker : '',
+                    currentValue: responseMQTT.currentValue,
+                    toggleLamp: responseMQTT.toggleLamp ? responseMQTT.toggleLamp : '',
+                    brightness: responseMQTT.brightness ? responseMQTT.brightness : '',
+                    warmth: responseMQTT.warmth ? responseMQTT.warmth : '',
+                    speed: responseMQTT.speed ? responseMQTT.speed : '',
+                    title: responseMQTT.title ? responseMQTT.title : '',
+                    isDynamic: responseMQTT.isDynamic,
+                }
+
+                dispatch(ActionCreator.addDinLamp(i, objectDinLamp));
+                i++;
+            }
+            // сделать стейт вкл/выкл
+            // сделать управление цветным слайдером
+            // сделать вывод текущего режима
+            // перейти на React-native без expo
+            // найти css-фреймворк
+        });
+    }, [])
+
+    // Функция нажатия на лампу
+    const onPressLump = (item: DinamicFildsLampType) => {
+        setToggleState(item.toggleLamp);
+        // dispatch(ActionCreator.setLoading());
+        dispatch(ActionCreator.getLampScreen(item));
     };
 
-    // Функция обработки удаления лампы
-    // Ламп удаляется из массива ламп и из хранилища телефона
+    // Функция удаления лампы и удаление слушателя на эту лампу
     const deleteItemHanlder = (id: string) => {
-        dataObjects.forEach((item: any, index: number) => {
-            if (item.id === id) {
-                data.splice(index, 1);
-                ip.splice(index, 1);
-                // setDataObjects(data);
-                dispatch(ActionCreator.loadLampsAC(data));
-                dispatch(ActionCreator.setAllIP(ip));
-                AsyncStorage.removeItem(item.id)
-                // Необходимо обновление экрана при удалении лампы
-                // Для этого отправляю запрос хоть куда (на ip роутера)
-                dispatch(Operation.reloadPage(LINK));
-            } else {
-                Alert.alert(`Возникла ошибка при удалении лампы, пожалуйста, перезагрузите приложение`);
+        dispatch(Operation.removeLamp({ lampId: id }));
+
+        lamps.forEach((item, index: number) => {
+            if (item.lampId === id) {
+                dispatch(ActionCreator.removeLamp(index));
             }
         });
+
+        let topic = `${login}/${id}`;
+
+        client.unsubscribe(topic);
     };
 
     // Функция обработки свайпа на лево
     const onSwipeLeft = (id: string) => {
-        return Alert.alert(
-            "Удаление элемента",
-            "Вы точно хотите удалить элемент?",
+        return Alert.alert( "Удаление элемента", "Вы точно хотите удалить элемент?",
             [
-                { 
-                    text: "Да", 
-                    onPress: () => deleteItemHanlder(id) 
-                },
-                {
-                    text: "Отмена",
-                    onPress: () => {},
-                    style: "cancel"
-                }
+                { text: "Да", onPress: () => deleteItemHanlder(id) },
+                { text: "Отмена", onPress: () => {}, style: "cancel" }
             ],
             { cancelable: false }
         )
     };
 
-    let component: any;
+    component = (
+        <ScrollView style={styles.scrollView}>
+            <View style={styles.wrapperList}> 
+            { dinLamps && dinLamps.length > 0 ?               
+                <FlatList
+                    style={styles.flatList}
+                    data={dinLamps}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => {
+                        let toggleLamp = item.toggleLamp ? true : false;
+                        let isOnline = false;
 
-    // Если массив ламп не пустой, то показываем список ламп
-    if (dataObjects && dataObjects.length > 0) {
-        component = (
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.wrapperList}>                
-                    <FlatList
-                        style={styles.flatList}
-                        data={dataObjects}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => {
-                            let TOGGLELAMPLINK = `${item.macAddress}/toggle`;
-                            let toggleLamp = item.toggleLamp === 'true' ? true : false;
-                            return (
-                                <GestureRecognizer 
-                                    onSwipeLeft={() => onSwipeLeft(item.id)}
-                                    config={config}
-                                    style={{
-                                        flex: 1,
-                                        width: `100%`
-                                    }}
-                                >
-                                    <View style={styles.elementWrapper}>
-                                        <TouchableOpacity 
-                                            onPress={() => {
-                                                // При нажатии на лампу, показывается спиннер загрузки и создается экран лампы
-                                                dispatch(ActionCreator.setSpinner(spinner));
-                                                onPressLump(item);
-                                                getLampScreen(item);
-                                            }} 
-                                            style={styles.wrapperElementName}
-                                        >
-                                            { online ? 
-                                                <Text style={styles.isOnline}>В сети</Text> : 
-                                                <Text style={styles.notOnline}>Не в сети</Text>
-                                            }
-        
-                                            <Text style={styles.elementName}>{ item.title }</Text>
-                                        </TouchableOpacity>
-        
-                                        <View style={styles.wrapperButton}>
-                                            <ToggleSwitch
-                                                isOn={ toggle === null ? toggleLamp : toggle }
-                                                onColor="green"
-                                                offColor="#39383d"
-                                                label=""
-                                                labelStyle={{ color: "black", fontWeight: "900" }}
-                                                size="large"
-                                                onToggle={(isOn: boolean) => {
-                                                    dispatch(Operation.toggleLamp(TOGGLELAMPLINK, isOn))
-                                                    setToggle(isOn);
-                                                }}
-                                                />
-                                        </View>                    
-                                    </View>
-                                </GestureRecognizer>
-                        )}}
-                    />
+                        let currentOnline = online.find((obj) => {
+                            return obj.id === item.id;
+                        });
+
+                        if (currentOnline) {
+                            isOnline = currentOnline.alive;
+                        }
+
+                        return (
+                            <GestureRecognizer 
+                                onSwipeLeft={() => onSwipeLeft(item.id)}
+                                config={config}
+                                style={{flex: 1, width: `100%`}}
+                            >
+                                <View style={styles.elementWrapper}>
+                                    <TouchableOpacity 
+                                        onPress={() => onPressLump(item)} 
+                                        style={styles.wrapperElementName}
+                                    >
+                                        { isOnline ? 
+                                            <Text style={styles.isOnline}>В сети</Text> : 
+                                            <Text style={styles.notOnline}>Не в сети</Text>
+                                        }
     
-                    <AddLamp />
-                </View>
-            </ScrollView>                     
-        );
-    } else {
-        component = null;
-    }
+                                        <Text style={styles.elementName}>{ item.title }</Text>
+                                    </TouchableOpacity>
+    
+                                    <View style={styles.wrapperButton}>
+                                        <ToggleSwitch
+                                            isOn={ toggle === null ? toggleLamp : toggle }
+                                            onColor="green"
+                                            offColor="#39383d"
+                                            label=""
+                                            labelStyle={{ color: "black", fontWeight: "900" }}
+                                            size="large"
+                                            onToggle={(isOn: boolean) => {
+                                                setToggle(isOn);
+                                            }}
+                                            />
+                                    </View>                    
+                                </View>
+                            </GestureRecognizer>
+                    )}}
+                /> :
+                <Text style={styles.emptyText}>Список ламп пуст</Text>
+            }
 
-    spinner ? component = <Spinner /> :
+                <AddLamp />
+            </View>
+        </ScrollView>                     
+    );
+    
+    isLoading ? component = <Spinner /> :
     lampScreenObject ? component = (
         <View style={styles.wrapperList}>
             <LampScreen lampScreenObject={lampScreenObject} />
         </View>
     ) : component;
 
-    
     return component;
 };
 
@@ -248,5 +265,15 @@ const styles = StyleSheet.create({
         width: `20%`,
         alignItems: `center`,
         justifyContent: `space-between`
+    },
+    emptyText: {
+        width: '100%',
+        textAlign: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'merri-weather-bold',
+        fontWeight: `bold`,
+        fontSize: 20,
+        padding: 10,
     }
 });

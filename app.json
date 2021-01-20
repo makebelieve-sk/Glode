@@ -2,7 +2,7 @@
   "expo": {
     "name": "led-project",
     "slug": "led-project",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "splash": {
@@ -19,11 +19,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.glode.led-project",
-      "buildNumber": "1.0.0"
+      "buildNumber": "1.0.3"
     },
     "android": {
       "package": "com.glode.led_project",
-      "versionCode": 1,
+      "versionCode": 3,
       "permissions": []
     },
     "web": {

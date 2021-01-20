@@ -4,31 +4,30 @@ import { StyleSheet, View, Text } from 'react-native';
 import { SliderComponent } from '../other-components/slider';
 import { ColorPickerComponent } from '../other-components/color-picker';
 import { Dropdown } from '../other-components/dropdown';
-import { LampType } from '../../types';
+import { DinamicFildsLampType } from '../../types';
 
 type ColoredLampComponentType = {
-    lampScreenObject: LampType | any
+    lampScreenObject: DinamicFildsLampType,
 };
 
 export const ColoredLampComponent: React.FC<ColoredLampComponentType> = ({ lampScreenObject }) => {
     const brightness = lampScreenObject.brightness;
-    const [ sliderValueBrightness, setSliderValueBrightness ] = useState<number | number[]>(parseInt(brightness.currentValue));
+    const [ sliderValueBrightness, setSliderValueBrightness ] = useState<number | number[]>(parseInt(brightness));
 
     return (
         <View style={styles.wrapperBlock}>
             <Text style={styles.sliderName}>цвет</Text>
             
             <View style={styles.wrapperColorPicker}>
-                <ColorPickerComponent macAddress={lampScreenObject.macAddress} colorPicker={lampScreenObject.colorPicker} />
+                <ColorPickerComponent colorPicker={lampScreenObject.colorPicker} lampId={lampScreenObject.id} />
             </View>
             
             <View style={styles.wrapperSlider}>
                 <SliderComponent 
-                    slider={brightness}
                     sliderValue={sliderValueBrightness}
                     setSliderValue={setSliderValueBrightness}
-                    macAddress={lampScreenObject.macAddress}
                     speed={false}
+                    lampId={lampScreenObject.id}
                 />
             </View>
 

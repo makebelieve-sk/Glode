@@ -2,35 +2,59 @@ import React, { useState } from 'react';//@ts-ignore
 import { SliderSaturationPicker } from 'react-native-slider-color-picker';
 import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import tinycolor from 'tinycolor2';
-import { useDispatch } from 'react-redux';
-
 import { Fontisto } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-import { Operation } from '../../reducer';
 import { HsvColor } from 'react-native-color-picker/dist/typeHelpers';
-import { LampType } from '../../types';
+import { useDispatch, useSelector } from 'react-redux';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
+
+import { DinamicFildsLampType, StateType } from '../../types';
+import client from '../../MQTTConnection';
+import { ActionCreator } from '../../reducer';
 
 type SliderColorPickerComponentType = {
-    lampScreenObject: LampType
+    lampScreenObject: DinamicFildsLampType,
 };
  
 export const SliderColorPickerComponent: React.FC<SliderColorPickerComponentType> = ({ lampScreenObject }) => {
-    const [ oldColor, setOldColor ] = useState("#FF7700");
+    const {login, dinLamp} = useSelector((state: StateType) => ({
+        login: state.login,
+        dinLamp: state.dinLamps
+    }));    
     const dispatch = useDispatch();
+    
+    let characteristic = `heat`;
+
+    const [ oldColor, setOldColor ] = useState("#FF7700");
 
     let newRef;
-    let LINK = `set_warmth`;
 
     const saveNewRef = (ref: any) => newRef = ref;
  
     const changeColor = (colorHsvOrRgb: HsvColor, resType: string) => {
         if (resType === 'end') {
-            setOldColor(tinycolor(colorHsvOrRgb).toHexString());
-            dispatch(Operation.sendData(LINK, {
-                currentValue: oldColor
-            }));
-            console.log(oldColor)
+            let newValue = tinycolor(colorHsvOrRgb).toHexString();
+            setOldColor(newValue);
+
+            let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+
+            // Отправка сообщения на mqtt сервер
+            const message = new Message(JSON.stringify(newValue));
+            message.destinationName = topic;
+            client.send(message);
+
+            let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                return lamp.id === lampScreenObject.id;
+            });
+
+            currentLamp.warmth = newValue;
+
+            let indexLamp = dinLamp.indexOf(currentLamp);
+
+            if (currentLamp && indexLamp >= 0) {
+                dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
+            }
         }
     }
 

@@ -1,4 +1,3 @@
-import { HsvColor } from "react-native-color-picker/dist/typeHelpers";
 import { ThunkAction } from "redux-thunk";
 
 import { reducer, ActionCreator } from './reducer';
@@ -12,15 +11,12 @@ type ThunkType = ThunkAction<Promise<void>, StateType, any, ActionCreatorType>;
 
 // Объект лампы
 type LampType = {
-    toggleLamp: boolean, // состояние лампы (вкл/выкл)
-    macAddress: string, // динамический адрес лампы
+    // стат лист
+    lampId: string, // id лампы
     title: string, // имя лампы
-    type: string, // тип лампы 
-    brightness?: string, // яркость
-    warmth?: string, // теплота
-    speed?: string, // скорость
+    lampType: string, // тип лампы 
     list: {// для удобства предлагаю сделать объект с двумя полями - массивами
-        stateMode: {
+        staticMode: {
             label: string,
             value: string | number
         }[], // массив объектов, в каждом объекте два поля, это строка - название, и значение - айди 
@@ -28,14 +24,26 @@ type LampType = {
             label: string,
             value: string | number
         }[],// массив объектов, в каждом объекте два поля, это строка - название, и значение - айди 
-        currentValue: string // текущее значение режима
     },
-    colorPicker?: string // цвет
 };
+
+// дин поля
+type DinamicFildsLampType = {
+    colorPicker: string // цвет
+    currentValue?: string // текущее значение режима
+    toggleLamp: boolean, // состояние лампы (вкл/выкл)
+    brightness: string, // яркость
+    warmth?: string, // теплота
+    speed: string, // скорость
+    id: string // id лампы
+    title?: string // название  лампы
+    isDynamic: boolean // какой режим (дин или нет)
+}
 
 export {
     StateType,
     ActionCreatorType,
     ThunkType,
-    LampType
+    LampType,
+    DinamicFildsLampType
 };

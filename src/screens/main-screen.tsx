@@ -1,123 +1,73 @@
 import React, { useEffect } from 'react';
 import { connect } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDispatch } from 'react-redux';
 
 import { HelloScreen } from './hello-screen';
 import { MenuScreen } from './menu-screen';
-import { ActionCreator } from '../reducer';
+import { ActionCreator, Operation } from '../reducer';
 import { ErrorComponent } from '../components/control-components/error-component';
 import { Spinner } from '../components/control-components/spinner';
-import { StateType, LampType } from '../types';
+import { StateType } from '../types';
+import client from '../MQTTConnection';
 
 type mapStatePropsType = {
-  lamps: LampType[],
-  isLoadingLamps: boolean,
+  isLoading: boolean,
   errorMessage: null | string,
-  lampScreenObject: any,
-  ip: string[],
-  online: boolean,
-  spinner: JSX.Element | null
+  isAuth: boolean
 };
 
-type mapDispatchPropsType = {
-  getLampScreen: (item: LampType) => any,
-  clearLampScreen: () => any,
-  loadLampsAC: (data: any[]) => any,
-  setIP: (ip: any) => any
-};
+type MainPageScreenProps = mapStatePropsType;
 
-type MainPageScreenProps = mapStatePropsType & mapDispatchPropsType;
-
-export const MainPageScreen: React.FC<MainPageScreenProps> = ({
-  lamps, 
-  isLoadingLamps, 
-  spinner, 
-  errorMessage, 
-  lampScreenObject, 
-  ip, 
-  online, 
-  getLampScreen, 
-  clearLampScreen, 
-  loadLampsAC,
-  setIP
-}) => {
+export const MainPageScreen: React.FC<MainPageScreenProps> = ({isLoading, errorMessage, isAuth}) => {
   let component;
 
-  // Проверяем наличие объектов ламп в хранилище телефона
-  // Если лампы есть, то пушим существующие лампы в массив ламп, и показываем экран с лампами (MenuScreen)
-  // Если ламп нет, то ничего не возвращаем
+  const dispatch = useDispatch();
+
+  // Запись пользователя в хранилище, открытие соединения с mqtt сервером и получение ламп из БД
   useEffect(() => {
-    let allLamps: any = [];
-    let arrIp: any = [];
+    async function checkAuth() {
+      try {
+        // dispatch(ActionCreator.setLoading());
 
-    async function fetchData() {
-      const retrieveData = async () => {
-        try {
-          AsyncStorage.getAllKeys((err, keys: any) => {
-            AsyncStorage.multiGet(keys, (err, stores: any) => {
-              stores.map((result: any, i: any, store: any) => {
-                // Для каждой лампы, которая есть в AsyncStorage
-                let value = store[i][1];
-                value = JSON.parse(value);
+        const user = await AsyncStorage.getItem('user');
+        await client.connect();
 
-                arrIp.push(value.macAddress);
-                allLamps.push(value);
-              }); 
+        if (user) {
+          dispatch(ActionCreator.setAuth(user));
+          dispatch(Operation.getAllLamps(user));
 
-              // добавляем в массив всех ip-адресов ip-адрес лампы из LocalStorage
-              setIP(arrIp);
-              // добавляем в массив всех ламп лампу из LocalStorage
-              loadLampsAC(allLamps);
-            });
-          });
-        } catch (error) {
-          console.log(`AsyncStorage is empty`);
-        };
-      };
+          let topic = `lamp/${user}/#`;
+          let topicOnline = `online/${user}/#`;
+          
+          await client.subscribe(topic);
+          await client.subscribe(topicOnline);
+        }
+      }
+      catch (error) {
+        let errorText = 'Возникла ошибка при получении ламп и открытии соединения с mqtt сервером, пожалуйста, перезагрузите приложение.';
+        dispatch(ActionCreator.getError(errorText));
+      }
+    }
 
-      retrieveData();
-    };
-    
-    fetchData();
+    checkAuth();  
   }, []);
 
-  // Если есть ошибка, показываем компонент с ошибкой
-  // Если в данный момент идет загрузка, то показываем компонент спиннера загрузки
-  // Если в данный момент массив статических адресов лампы не пустой, то показываем экран ламп (MenuScreen)
-  // Если в данный момент массив статических адресов ламп пустой, то показывыаем начальный экран
   errorMessage ? component = <ErrorComponent errorMessage={errorMessage} /> :
-  isLoadingLamps ? component = <Spinner /> : 
-  ip && ip.length > 0 ? component = (
-    <MenuScreen
-        lamps={lamps} 
-        lampScreenObject={lampScreenObject}
-        getLampScreen={getLampScreen}
-        clearLampScreen={clearLampScreen}
-        ip={ip}
-        online={online}
-        spinner={spinner}
-      />
+  isLoading ? component = <Spinner /> : 
+  isAuth ? component = (
+    <MenuScreen />
   ) :
-  component = <HelloScreen spinner={spinner} />
+  component = <HelloScreen isLoading={isLoading} />
 
   return component;
 };
 
 const mapStateToProps = (state: StateType) => ({
-  lamps: state.lamps,
-  isLoadingLamps: state.isLoadingLamps,
-  spinner: state.spinner,
+  isLoading: state.isLoading,
   errorMessage: state.errorMessage,
   lampScreenObject: state.lampScreenObject,
-  ip: state.ip,
-  online: state.online
+  isAuth: state.isAuth
 });
 
-const mapDispatchToProps = (dispatch: any) => ({
-  getLampScreen: (item: LampType) => dispatch(ActionCreator.getLampScreen(item)),
-  clearLampScreen: () => dispatch(ActionCreator.clearLampScreen()),
-  loadLampsAC: (data: any[]) => dispatch(ActionCreator.loadLampsAC(data)),
-  setIP: (ip: any) => dispatch(ActionCreator.setAllIP(ip))
-});
-
-export default connect<mapStatePropsType, mapDispatchPropsType, {}, StateType>(mapStateToProps, mapDispatchToProps)(MainPageScreen);
+export default connect<mapStatePropsType, {}, {}, StateType>(mapStateToProps)(MainPageScreen);

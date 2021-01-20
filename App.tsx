@@ -26,7 +26,7 @@ export default function App() {
   if (!isReady) {
     return <AppLoading 
       startAsync={loadApplication}
-      onError={(err) => <ErrorComponent errorMessage={`Произошла ошибка при загрузке шрифтов`} />}
+      onError={(error: Error) => <ErrorComponent errorMessage={`Произошла ошибка при загрузке шрифтов: ${error}`} />}
       onFinish={() => setIsReady(true)}
     />
   }
