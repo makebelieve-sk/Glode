@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';//@ts-ignore
 import { ModalSelectList } from 'react-native-modal-select-list';
@@ -10,6 +10,7 @@ import { SliderComponent } from './slider';
 import { DinamicFildsLampType, LampType, StateType } from '../../types';
 import client from '../../MQTTConnection';
 import { ActionCreator } from '../../reducer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const characteristic = 'effect';
 
@@ -18,12 +19,25 @@ type DropdownType = {
 };
 
 export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
-    const {login, dinLamp, lamps} = useSelector((state: StateType) => ({
-        login: state.login,
+    const {dinLamp, lamps} = useSelector((state: StateType) => ({
         dinLamp: state.dinLamps,
         lamps: state.lamps
     }));    
     const dispatch = useDispatch();
+
+    const [ user, setUser ] = useState<null | string>(null);
+
+    useEffect(() => {
+        const GetUser = async () => {
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                setUser(user);
+            }
+        }
+
+        GetUser();
+    }, []);
 
     let lamp = lamps.find((lamp: LampType) => {
         return lampScreenObject.id === lamp.lampId;
@@ -125,7 +139,7 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                     setDinValue(false);
                     console.log('Режим: ', result);
 
-                    let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+                    let topic = `lamp/${user}/${lampScreenObject.id}/${characteristic}`;
 
                     // Отправка сообщения на mqtt сервер
                     const message = new Message(stateValue);
@@ -168,7 +182,7 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                     setDinValue(true);
                     console.log('Режим: ', result)
 
-                    let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+                    let topic = `lamp/${user}/${lampScreenObject.id}/${characteristic}`;
 
                     // Отправка сообщения на mqtt сервер
                     const message = new Message(dinValue);

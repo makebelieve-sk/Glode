@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, View, SafeAreaView, Platform, StatusBar } from 'react-native';
 
 import { Header } from '../components/ui-components/header';
@@ -6,24 +6,13 @@ import { BodyComponent } from '../components/ui-components/body-component';
 import { Footer } from '../components/ui-components/footer';
 
 export const MenuScreen: React.FC = () => {
-    const [ toggle, setToggle ] = useState<null | boolean>(null);
-    const [ toggleState, setToggleState ] = useState<boolean | null>(null);
 
     return (
         <SafeAreaView style={styles.container}>
-                <Header 
-                    toggle={toggle}
-                    setToggle={setToggle}
-                    toggleState={toggleState}
-                    setToggleState={setToggleState}
-                />
+                <Header />
         
                 <View style={styles.body}>
-                    <BodyComponent
-                        toggle={toggle}
-                        setToggle={setToggle}
-                        setToggleState={setToggleState}
-                    />
+                    <BodyComponent />
                 </View>
         
                 <Footer />            

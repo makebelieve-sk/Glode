@@ -4,25 +4,19 @@ import { useSelector, useDispatch } from 'react-redux';
 import GestureRecognizer from 'react-native-swipe-gestures';
 //@ts-ignore
 import ToggleSwitch from 'toggle-switch-react-native';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
 
 import { AddLamp } from '../other-components/add-lamp';
 import { LampScreen } from '../../screens/lamp-screen';
 import { Spinner } from '../control-components/spinner';
-import { ActionCreator, Operation } from '../../reducer';
+import { ActionCreator } from '../../reducer';
 import { DinamicFildsLampType, LampType, StateType } from '../../types';
 import client from '../../MQTTConnection';
+import { useHttp } from '../../hooks/useHttp.hook';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type BodyComponentType = {
-    toggle: boolean | null, 
-    setToggle: React.Dispatch<React.SetStateAction<boolean | null>>,
-    setToggleState: React.Dispatch<React.SetStateAction<boolean | null>>,
-};
-
-export const BodyComponent: React.FC<BodyComponentType> = ({
-    toggle, 
-    setToggle,
-    setToggleState,
-}) => {
+export const BodyComponent: React.FC = () => {
     let component: any;
 
     const config = {
@@ -30,18 +24,32 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
         directionalOffsetThreshold: 80
     };
 
-    const { lamps, isLoading, lampScreenObject, login, dinLamps } = useSelector((state: StateType) => ({
+    const { lamps, lampScreenObject, dinLamps } = useSelector((state: StateType) => ({
         lamps: state.lamps,
         dinLamps: state.dinLamps,
-        isLoading: state.isLoading,
-        lampScreenObject: state.lampScreenObject,
-        login: state.login
+        lampScreenObject: state.lampScreenObject
     }));
     const dispatch = useDispatch();
+    const { request, loading } = useHttp();
 
     const [ online, setOnline ] = useState<{ id: string, alive: boolean }[]>([]);
+    const [ user, setUser ] = useState<null | string>(null);
 
     let onlineArr: { id: string, alive: boolean }[] = [];
+
+    useEffect(() => {
+        const GetUser = async () => {
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                setUser(user);
+            }
+        }
+
+        GetUser();
+    }, []);
+
+    let characteristic = "toggleLamp";
 
     // Получение полей динамических значений лампы
     useEffect(() => {
@@ -98,34 +106,33 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
                 dispatch(ActionCreator.addDinLamp(i, objectDinLamp));
                 i++;
             }
-            // сделать стейт вкл/выкл
             // сделать управление цветным слайдером
             // сделать вывод текущего режима
-            // перейти на React-native без expo
-            // найти css-фреймворк
         });
     }, [])
 
     // Функция нажатия на лампу
     const onPressLump = (item: DinamicFildsLampType) => {
-        setToggleState(item.toggleLamp);
-        // dispatch(ActionCreator.setLoading());
         dispatch(ActionCreator.getLampScreen(item));
     };
 
-    // Функция удаления лампы и удаление слушателя на эту лампу
-    const deleteItemHanlder = (id: string) => {
-        dispatch(Operation.removeLamp({ lampId: id }));
+    // Функция удаления лампы из БД, из двух массивов ламп redux и удаление слушателя на эту лампу
+    const deleteItemHanlder = async (id: string) => {
+        await request('http://5.189.86.177:8080/api/lamp/remove', 'POST', {lampId: id});
 
         lamps.forEach((item, index: number) => {
             if (item.lampId === id) {
                 dispatch(ActionCreator.removeLamp(index));
+                dispatch(ActionCreator.removeDinLamp(index));
             }
         });
 
-        let topic = `${login}/${id}`;
+        const user = await AsyncStorage.getItem('user');
 
-        client.unsubscribe(topic);
+        if (user) {
+            let topic = `${user}/${id}`;
+            client.unsubscribe(topic);
+        }
     };
 
     // Функция обработки свайпа на лево
@@ -148,7 +155,8 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
                     data={dinLamps}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => {
-                        let toggleLamp = item.toggleLamp ? true : false;
+                        // const [ toggle, setToggle ] = useState(item.toggleLamp);
+
                         let isOnline = false;
 
                         let currentOnline = online.find((obj) => {
@@ -180,14 +188,30 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
     
                                     <View style={styles.wrapperButton}>
                                         <ToggleSwitch
-                                            isOn={ toggle === null ? toggleLamp : toggle }
+                                            isOn={ item.toggleLamp }
                                             onColor="green"
                                             offColor="#39383d"
                                             label=""
                                             labelStyle={{ color: "black", fontWeight: "900" }}
                                             size="large"
                                             onToggle={(isOn: boolean) => {
-                                                setToggle(isOn);
+                                                let topic = `lamp/${user}/${item.id}/${characteristic}`;
+
+                                                // Отправка сообщения на mqtt сервер
+                                                const message = new Message(JSON.stringify(isOn));
+                                                message.destinationName = topic;
+                                                client.send(message);
+
+                                                item.toggleLamp = isOn;
+                                                let currentDinLamp: any | DinamicFildsLampType = dinLamps.find((lamp: DinamicFildsLampType) => {
+                                                    return lamp.id === item.id;
+                                                });
+
+                                                let indexLamp = dinLamps.indexOf(currentDinLamp);
+
+                                                if (currentDinLamp && indexLamp >= 0) {
+                                                    dispatch(ActionCreator.addDinLamp(indexLamp, currentDinLamp));
+                                                }
                                             }}
                                             />
                                     </View>                    
@@ -199,11 +223,11 @@ export const BodyComponent: React.FC<BodyComponentType> = ({
             }
 
                 <AddLamp />
-            </View>
+        </View>
         </ScrollView>                     
     );
     
-    isLoading ? component = <Spinner /> :
+    loading ? component = <Spinner /> :
     lampScreenObject ? component = (
         <View style={styles.wrapperList}>
             <LampScreen lampScreenObject={lampScreenObject} />

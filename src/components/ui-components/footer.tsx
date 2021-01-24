@@ -1,15 +1,37 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, StyleSheet, Text } from 'react-native';
+import {useSelector, useDispatch} from 'react-redux';
 
+import { ActionCreator } from '../../reducer';
 import { OpenUrlButton } from '../other-components/open-url-button';
 
-export const Footer: React.FC = () => (
-    <View style={styles.footer}>
-        <View style={styles.wrapperFooterText}>
-            <OpenUrlButton>Перейти на сайт производителя</OpenUrlButton>
+export const Footer: React.FC = () => {
+    const dispatch = useDispatch();
+
+    const handlePress = async () => {
+        try {
+            dispatch(ActionCreator.logOut());
+
+            await AsyncStorage.removeItem('user');
+        } catch(e) {
+            let errorText = 'Возникла ошибка при выходе из системы, пожалуйста, перезагрузите приложение.';
+            dispatch(ActionCreator.getError(errorText));
+        }
+
+    };
+
+    return (
+        <View style={styles.footer}>
+            <View style={styles.wrapperFooterText}>
+                <OpenUrlButton>Перейти на сайт производителя</OpenUrlButton>
+                <TouchableOpacity onPress={handlePress}>
+                    <Text style={styles.logOut}>Выйти</Text>
+                </TouchableOpacity>
+            </View>
         </View>
-    </View>
-);
+    )
+};
 
 const styles = StyleSheet.create({
     footer: {
@@ -25,5 +47,11 @@ const styles = StyleSheet.create({
         width: `100%`,
         justifyContent: `center`,
         alignItems: `center`
+    },
+    logOut: {
+        color: `#fff`,
+        fontFamily: `merri-weather-bold`,
+        fontSize: 16,
+        paddingVertical: 10
     }
 });

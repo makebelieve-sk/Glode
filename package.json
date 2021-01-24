@@ -17,15 +17,18 @@
     "buffer": "^6.0.3",
     "expo": "~39.0.2",
     "expo-cli": "^4.0.17",
-    "expo-font": "^8.3.0",
+    "expo-font": "~8.3.0",
     "expo-status-bar": "~1.0.2",
     "mqtt": "^4.2.6",
+    "native-base": "^2.15.2",
     "react": "16.13.1",
     "react-dom": "16.13.1",
     "react-native": "https://github.com/expo/react-native/archive/sdk-39.0.3.tar.gz",
     "react-native-color-picker": "^0.6.0",
+    "react-native-easy-grid": "^0.2.2",
     "react-native-file-opener": "^0.2.0",
     "react-native-file-viewer": "^2.1.4",
+    "react-native-flash-message": "^0.1.21",
     "react-native-gesture-handler": "~1.7.0",
     "react-native-lanscan": "^1.0.3",
     "react-native-modal-select-list": "^1.1.0",
@@ -50,5 +53,6 @@
     "react-native-web": "^0.13.18",
     "typescript": "~3.9.5"
   },
-  "private": true
+  "private": true,
+  "postinstall": "cp node_modules/@expo/vector-icons/FontAwesome.js node_modules/@expo/vector-icons/Fontisto.js"
 }

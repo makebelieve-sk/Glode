@@ -1,115 +1,107 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, StatusBar, Platform, Text, Image, TextInput, TouchableOpacity } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import React, { useState } from 'react';
+import { StyleSheet, View, StatusBar, Platform, Text, Image } from 'react-native';
+import { useDispatch } from 'react-redux';
+import { Container, Button, Content, Form, Item, Input, Icon } from 'native-base';
+import { Row, Grid } from "react-native-easy-grid";
 
 import { OpenUrlButton } from '../components/other-components/open-url-button';
 import { Spinner } from '../components/control-components/spinner';
-import { ActionCreator, Operation } from '../reducer';
-import { StateType } from '../types';
+import { ActionCreator } from '../reducer';
+import { useHttp } from '../hooks/useHttp.hook';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type HelloScreenType = {
-    isLoading: boolean
-};
-
-export const HelloScreen: React.FC<HelloScreenType> = ({ isLoading }) => {
+export const HelloScreen: React.FC = () => {
     let component;
+    
+    const { request, loading } = useHttp();
     const dispatch = useDispatch();
 
     const [ login, setLogin ] = useState<string>('');
     const [ pass, setPass ] = useState<string>('');
-    const [ textInvalid, setTextInvalid ] = useState<string | null>(null);
 
-    const refLogin = useRef<any>();
-
-    const { authInvalidMessage } = useSelector((state: StateType) => ({
-        authInvalidMessage: state.authInvalidMessage
-    }));
-
-    // Создание элемента валидации
-    let errorMessage: JSX.Element | null = (
-        <View style={styles.invalidBlock}>
-            <Text style={styles.textInvalid}>{ authInvalidMessage ? authInvalidMessage : textInvalid }</Text>
-        </View>
-    );
-
-    textInvalid || authInvalidMessage ? component : component = null;
-
-    // Установка фокуса на инпут логина
-    useEffect(() => {
-        refLogin.current.focus();
-    }, []);
+    const [ success, setSuccess ] = useState<boolean>(false);
+    const [ errorLogin, setErrorLogin ] = useState<boolean>(false);
+    const [ errorPassword, setErrorPassword ] = useState<boolean>(false);
 
     // Отправка логина и пароля пользователя на сервер
-    const authHandler = (auth: string) => {
+    const authHandler = async (auth: string) => {
+        setErrorLogin(false);
+        setErrorPassword(false);
+
         if (login === '' && pass === '') {
-            setTextInvalid(` Введите логин и пароль`);
+            setErrorLogin(true);
+            setErrorPassword(true);
             return null;
         } else if (login === '') {
-            setTextInvalid(`Введите логин`);
+            setErrorLogin(true);
             return null;
         } else if (pass === '') {
-            setTextInvalid(`Введите пароль`);
+            setErrorPassword(true);
             return null;
         } else {
-            // dispatch(ActionCreator.setLoading());
-            dispatch(Operation.authorization(auth, { login, pass }));
+            setSuccess(true);
+
+            const data = await request('http://5.189.86.177:8080/api/auth/' + auth, 'POST', { login, pass });
+
+            if (data.login) {
+                // Функция записи пользователя в хранилище телефона
+                const setUser = async (login: string) => {
+                    try {
+                        await AsyncStorage.setItem('user', login);
+                    } catch (error) {
+                        let errorText = `Ошибка при сохранении пользователя: ${error}`;
+                        dispatch(ActionCreator.getError(errorText));
+                    }
+                };
+
+                setUser(data.login);
+                dispatch(ActionCreator.setAuth(login));
+            }
         }
     };
 
-    isLoading ? component = <Spinner /> :
-    component = (          
-        <View style={styles.screenHelloWrapper}>
-                <Image style={styles.image} source={require("../../assets/name-header.png")} />
+    loading ? component = <Spinner /> :
+    component = (
+        <Container style={{paddingTop: Platform.OS === `android` ? StatusBar.currentHeight : 0,}}>
+            <Grid style={{alignItems: "center", justifyContent: "center"}}>
+                <Row size={20} style={{alignItems: "flex-end"}}><Text style={styles.title}>GLODE</Text></Row>
+                <Row size={15} style={{justifyContent: "center"}}><Text style={styles.subTitle}>СТИЛЬНЫЕ ИНТЕРЬЕРНЫЕ РЕШЕНИЯ</Text></Row>
+                <Row size={55} style={{width: '80%'}}>
+                    <Content>
+                        <Form>
+                            <Item floatingLabel success={success} error={errorLogin} last>
+                                <Input
+                                    onChangeText={text => setLogin(text)}
+                                    value={login}
+                                    placeholder="Введите логин"
+                                />
+                                { errorLogin ? <Icon name='close-circle' /> : null }
+                            </Item>
+                            <Item floatingLabel last success={success} error={errorPassword}>
+                                <Input
+                                    onChangeText={text => setPass(text)}
+                                    value={pass}
+                                    placeholder="Введите пароль" 
+                                />
+                                { errorPassword ? <Icon name='close-circle' /> : null }
+                            </Item>
+                        </Form>
 
-                <View style={styles.screenHelloSubHeader}>
-                    <Text style={styles.subHeader}>СТИЛЬНЫЕ ИНТЕРЬЕРНЫЕ РЕШЕНИЯ</Text>               
-                </View>
-
-                <View style={styles.screenHelloBody}>
-                    <View style={styles.inputsField}>
-                        <TextInput 
-                            style={styles.inputs}
-                            onChangeText={text => setLogin(text)}
-                            value={login}
-                            placeholder="Введите логин"
-                            ref={refLogin}
-                        />
-                        <TextInput 
-                            style={styles.inputs}
-                            onChangeText={text => setPass(text)}
-                            value={pass}
-                            placeholder="Введите пароль"
-                        />
-                    </View>
-
-                    <View style={styles.buttonsField}>
-                        <TouchableOpacity
-                            style={styles.buttonWrapper}
-                            onPress={() => authHandler('login')}
-                        >
-                            <Text style={styles.buttonsText}>
-                                Войти
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.buttonWrapper}
-                            onPress={() => authHandler('reg')}
-                        >
-                            <Text style={styles.buttonsText}>
-                                Регистрация
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    { errorMessage }
-                </View>
-
-                <View style={styles.screenHelloFooter}>
+                        <Button block primary onPress={() => authHandler('login')} style={{marginTop: '10%', marginBottom: '5%'}}>
+                            <Text>Войти</Text>
+                        </Button>
+                        <Button block light onPress={() => authHandler('reg')}>
+                            <Text>Регистрация</Text>
+                        </Button>
+                    </Content>
+                </Row>
+                <Row size={10} style={{alignItems: "center"}}>
                     <View style={styles.wrapperUrlButton}>
                         <OpenUrlButton>ПЕРЕЙТИ НА САЙТ ПРОИЗВОДИТЕЛЯ</OpenUrlButton>
                     </View>
-                </View>            
-        </View>
+                </Row>
+            </Grid>
+      </Container>
     );
 
     return component;
@@ -124,21 +116,25 @@ const styles = StyleSheet.create({
       width: `100%`
     },
     image: {
-        height: `15%`,
+        height: `100%`,
         width: `100%`,
         resizeMode: "contain",
-        justifyContent: "center"
+        borderWidth: 1
     },
     screenHelloSubHeader: {
         width: `100%`,
         alignItems: `center`,
         justifyContent: `center`,
     },
-    subHeader: {
-        fontSize: 18,
+    title: {
+        fontSize: 28,
         fontFamily: 'merri-weather-bold',
-        color: `#fff`,
-        paddingVertical: 5
+        color: `black`
+    },
+    subTitle: {
+        fontSize: 16,
+        fontFamily: 'merri-weather-bold',
+        color: `black`
     },
     screenHelloBody: {
         height: `65%`,

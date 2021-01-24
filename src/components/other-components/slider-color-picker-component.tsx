@@ -1,4 +1,4 @@
-import React, { useState } from 'react';//@ts-ignore
+import React, { useState, useEffect } from 'react';//@ts-ignore
 import { SliderSaturationPicker } from 'react-native-slider-color-picker';
 import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import tinycolor from 'tinycolor2';
@@ -12,17 +12,31 @@ import { Message } from 'react-native-paho-mqtt';
 import { DinamicFildsLampType, StateType } from '../../types';
 import client from '../../MQTTConnection';
 import { ActionCreator } from '../../reducer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SliderColorPickerComponentType = {
     lampScreenObject: DinamicFildsLampType,
 };
  
 export const SliderColorPickerComponent: React.FC<SliderColorPickerComponentType> = ({ lampScreenObject }) => {
-    const {login, dinLamp} = useSelector((state: StateType) => ({
-        login: state.login,
+    const {dinLamp} = useSelector((state: StateType) => ({
         dinLamp: state.dinLamps
     }));    
     const dispatch = useDispatch();
+
+    const [ user, setUser ] = useState<null | string>(null);
+
+    useEffect(() => {
+        const GetUser = async () => {
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                setUser(user);
+            }
+        }
+
+        GetUser();
+    }, []);
     
     let characteristic = `heat`;
 
@@ -37,7 +51,7 @@ export const SliderColorPickerComponent: React.FC<SliderColorPickerComponentType
             let newValue = tinycolor(colorHsvOrRgb).toHexString();
             setOldColor(newValue);
 
-            let topic = `lamp/${login}/${lampScreenObject.id}/${characteristic}`;
+            let topic = `lamp/${user}/${lampScreenObject.id}/${characteristic}`;
 
             // Отправка сообщения на mqtt сервер
             const message = new Message(JSON.stringify(newValue));

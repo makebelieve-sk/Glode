@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableHighlight } from 'react-native';
 import { useDispatch } from 'react-redux';
+import { useHttp } from '../../hooks/useHttp.hook';
 
-import { ActionCreator, Operation } from '../../reducer';
+import { ActionCreator } from '../../reducer';
 
 type ModalFormType = {
     showForm: boolean, 
@@ -11,6 +13,7 @@ type ModalFormType = {
 };
 
 export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setModalVisible }) => {
+    const { request, loading } = useHttp();
     const dispatch = useDispatch();
     const [ value, onChangeText ] = useState<string>('');
     const [ password, onChangePassword ] = useState<string>('');
@@ -31,9 +34,9 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
     }, []);
 
     // Функция клика на кнопку "Отправить"
-    const pressHandler = () => {
+    const pressHandler =  async () => {
         if (value === '' && password === '') {
-            setTextInvalid(` Введите логин и пароль`);
+            setTextInvalid(`Введите логин и пароль`);
             return null;
         } else if (value === '') {
             setTextInvalid(`Введите логин`);
@@ -44,8 +47,20 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
         } else {
             setShowForm(!showForm);
             setModalVisible(false);
-            // dispatch(ActionCreator.setLoading());
-            dispatch(Operation.addNewLamp({name: value, password: password}));
+
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                const response = await request('http://192.168.4.1:80/getmac', 'POST', {name: value, password: password, login: user});
+
+                if (response) {
+                    const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
+
+                    if (data) {
+                        dispatch(ActionCreator.getAllLamps(data));
+                    }
+                }
+            }
         }
     };
 

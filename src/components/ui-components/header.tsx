@@ -1,33 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { SimpleLineIcons } from '@expo/vector-icons'; 
 //@ts-ignore
 import ToggleSwitch from 'toggle-switch-react-native';
-import { StateType } from '../../types';
+//@ts-ignore
+import { Message } from 'react-native-paho-mqtt';
+
+import { DinamicFildsLampType, StateType } from '../../types';
 import { ActionCreator } from '../../reducer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import client from '../../MQTTConnection';
 
-type HeaderType = {
-    toggle: boolean | null, 
-    setToggle: React.Dispatch<React.SetStateAction<boolean | null>>,
-    toggleState: boolean | null,
-    setToggleState: React.Dispatch<React.SetStateAction<boolean | null>>, 
-};
-
-export const Header: React.FC<HeaderType> = ({
-    toggle, 
-    setToggle, 
-    toggleState,
-    setToggleState
-}) => {
-    let toggleLamp = toggleState ? true : false;
-
-    const lampScreenObject = useSelector((state: StateType) => state.lampScreenObject);
+export const Header: React.FC = () => {
+    const {lampScreenObject, dinLamps} = useSelector((state: StateType) => ({
+        lampScreenObject: state.lampScreenObject,
+        dinLamps: state.dinLamps
+    }));
     const dispatch = useDispatch();
+
+    const [ user, setUser ] = useState<null | string>(null);
+
+    useEffect(() => {
+        const GetUser = async () => {
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                setUser(user);
+            }
+        }
+
+        GetUser();
+    }, []);
+
+    let characteristic = "toggleLamp";
 
     // Функция обработки нажатия кнопки "Назад"
     const goBack = () => {
-        setToggleState(null);
         dispatch(ActionCreator.clearLampScreen());
     };
     
@@ -68,14 +77,30 @@ export const Header: React.FC<HeaderType> = ({
                 <View style={styles.headerRight}>
                     <TouchableOpacity onPress={() => alert(1)}>
                         <ToggleSwitch
-                            isOn={ toggle === null ? toggleLamp : toggle }
+                            isOn={ lampScreenObject.toggleLamp }
                             onColor="green"
                             offColor="#39383d"
                             label=""
                             labelStyle={{ color: "black", fontWeight: "900" }}
                             size="large"
                             onToggle={(isOn: boolean) => {
-                                setToggle(isOn);
+                                let topic = `lamp/${user}/${lampScreenObject.id}/${characteristic}`;
+
+                                // Отправка сообщения на mqtt сервер
+                                const message = new Message(JSON.stringify(isOn));
+                                message.destinationName = topic;
+                                client.send(message);
+
+                                lampScreenObject.toggleLamp = isOn;
+                                let currentDinLamp: any | DinamicFildsLampType = dinLamps.find((lamp: DinamicFildsLampType) => {
+                                    return lamp.id === lampScreenObject.id;
+                                });
+
+                                let indexLamp = dinLamps.indexOf(currentDinLamp);
+
+                                if (currentDinLamp && indexLamp >= 0) {
+                                    dispatch(ActionCreator.addDinLamp(indexLamp, currentDinLamp));
+                                }
                             }}
                         />
                     </TouchableOpacity>

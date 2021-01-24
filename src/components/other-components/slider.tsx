@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Dimensions } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Slider } from "@miblanchard/react-native-slider";
@@ -10,6 +10,7 @@ import { Message } from 'react-native-paho-mqtt';
 import client from '../../MQTTConnection';
 import { DinamicFildsLampType, StateType } from '../../types';
 import { ActionCreator } from '../../reducer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SliderComponentType = {
     sliderValue: number | number[], 
@@ -19,11 +20,24 @@ type SliderComponentType = {
 };
 
 export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, setSliderValue, speed, lampId }) => {
-    const {login, dinLamp} = useSelector((state: StateType) => ({
-        login: state.login,
-        dinLamp: state.dinLamps
+    const {dinLamps} = useSelector((state: StateType) => ({
+        dinLamps: state.dinLamps
     }));    
     const dispatch = useDispatch();
+
+    const [ user, setUser ] = useState<null | string>(null);
+
+    useEffect(() => {
+        const GetUser = async () => {
+            const user = await AsyncStorage.getItem('user');
+
+            if (user) {
+                setUser(user);
+            }
+        }
+
+        GetUser();
+    }, []);
 
     let characteristic = `brightness`;
     speed ? characteristic = `speed` : null;
@@ -52,20 +66,20 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, se
                         onValueChange={sliderValue => {
                             setSliderValue(sliderValue);
 
-                            let topic = `lamp/${login}/${lampId}/${characteristic}`;
+                            let topic = `lamp/${user}/${lampId}/${characteristic}`;
 
                             // Отправка сообщения на mqtt сервер
                             const message = new Message(JSON.stringify(sliderValue[0]));
                             message.destinationName = topic;
                             client.send(message);
 
-                            let currentLamp: any | DinamicFildsLampType = dinLamp.find((lamp: DinamicFildsLampType) => {
+                            let currentLamp: any | DinamicFildsLampType = dinLamps.find((lamp: DinamicFildsLampType) => {
                                 return lamp.id === lampId;
                             });
 
                             speed ? currentLamp.speed = sliderValue[0] : currentLamp.brightness = sliderValue[0];
 
-                            let indexLamp = dinLamp.indexOf(currentLamp);
+                            let indexLamp = dinLamps.indexOf(currentLamp);
 
                             if (currentLamp && indexLamp >= 0) {
                                 dispatch(ActionCreator.addDinLamp(indexLamp, currentLamp));
