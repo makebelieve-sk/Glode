@@ -15,25 +15,20 @@ type LampType = {
     lampId: string, // id лампы
     title: string, // имя лампы
     lampType: string, // тип лампы 
-    list: {// для удобства предлагаю сделать объект с двумя полями - массивами
-        staticMode: {
-            label: string,
-            value: string | number
-        }[], // массив объектов, в каждом объекте два поля, это строка - название, и значение - айди 
-        dinMode: {
-            label: string,
-            value: string | number
-        }[],// массив объектов, в каждом объекте два поля, это строка - название, и значение - айди 
-    },
+    list: {
+        label: string, // Название режима
+        value: string | number, // Идентификатор
+        dinType: boolean // является ли режим динамическим, если да, то мне нужно по этому флагу показывать ползунок скорости
+    }[]
 };
 
 // дин поля
 type DinamicFildsLampType = {
     colorPicker: string // цвет
-    currentValue?: string // текущее значение режима
+    currentValue?: number // текущее значение режима, строчка value
     toggleLamp: boolean, // состояние лампы (вкл/выкл)
     brightness: string, // яркость
-    warmth?: string, // теплота
+    warmth: string, // теплота
     speed: string, // скорость
     id: string // id лампы
     title?: string // название  лампы

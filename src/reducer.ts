@@ -33,9 +33,9 @@ const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
             return Object.assign({}, state, {
                 dinLamps: [ ...state.dinLamps.slice(0, newIndex), action.payload, ...state.dinLamps.slice(newIndex + 1) ]
             });
-        case 'EDIT_DIN_LAMP':
+        case 'PUSH_DIN_LAMP':
             return Object.assign({}, state, {
-                dinLamps: [ ...state.dinLamps.slice(0, action.index), action.payload, ...state.dinLamps.slice(action.index + 1) ]
+                dinLamps: [ ...state.dinLamps, action.payload ]
             });
         case `REMOVE_LAMP`:
             let index = action.payload;
@@ -184,7 +184,7 @@ const ActionCreator = {
             payload: object
         } as const
     },
-    // Добавление динамических полей лампы
+    // Добавление динамических полей лампы в массив
     addDinLamp: (index: number, object: DinamicFildsLampType) => {
         return {
             type: 'ADD_DIN_LAMP',
@@ -192,10 +192,10 @@ const ActionCreator = {
             index: index
         } as const
     },
-    editLamp:(index: number, object: DinamicFildsLampType) => {
+    // Добавление динамических полей лампы в конец массива
+    pushDinLamp:(object: DinamicFildsLampType) => {
         return {
-            type: 'EDIT_DIN_LAMP',
-            index: index,
+            type: 'PUSH_DIN_LAMP',
             payload: object
         } as const
     },

@@ -17,9 +17,10 @@ type SliderComponentType = {
     setSliderValue: React.Dispatch<React.SetStateAction<number | number[]>>, 
     speed: boolean,
     lampId: string,
+    heat: boolean
 };
 
-export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, setSliderValue, speed, lampId }) => {
+export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, setSliderValue, speed, lampId, heat }) => {
     const {dinLamps} = useSelector((state: StateType) => ({
         dinLamps: state.dinLamps
     }));    
@@ -41,10 +42,11 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, se
 
     let characteristic = `brightness`;
     speed ? characteristic = `speed` : null;
+    heat ? characteristic = 'heat' : null;
 
     return (
         <View style={styles.mainWrapper}>
-            <Text style={styles.sliderName}>{ speed ? "скорость" : "яркость" }</Text>
+            <Text style={styles.sliderName}>{ speed ? "скорость" : heat ? "теплота" : "яркость" }</Text>
             
             <View style={styles.mainWrapperSliderBlock}>
                 { 

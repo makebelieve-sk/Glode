@@ -12,8 +12,10 @@ type CommonLampComponentType = {
 
 export const CommonLampComponent: React.FC<CommonLampComponentType> = ({ lampScreenObject }) => {
     const brightness = lampScreenObject.brightness;
+    const warmth = lampScreenObject.warmth;
     const [ sliderValueBrightness, setSliderValueBrightness ] = useState<number | number[]>(parseInt(brightness));
-
+    const [ sliderValueWarmth, setSliderValueWarmth ] = useState<number | number[]>(parseInt(warmth));
+    
     return (
         <View style={styles.wrapperBlock}>
             <View style={styles.wrapperSlider}>
@@ -22,11 +24,19 @@ export const CommonLampComponent: React.FC<CommonLampComponentType> = ({ lampScr
                     setSliderValue={setSliderValueBrightness}
                     speed={false}
                     lampId={lampScreenObject.id}
+                    heat={false}
                 />
             </View>
 
             <View style={styles.wrapperSlider}>
-                <SliderColorPickerComponent lampScreenObject={lampScreenObject} />
+                <SliderComponent 
+                    sliderValue={sliderValueWarmth}
+                    setSliderValue={setSliderValueWarmth}
+                    speed={false}
+                    lampId={lampScreenObject.id}
+                    heat={true}
+                />
+                {/* <SliderColorPickerComponent lampScreenObject={lampScreenObject} /> */}
             </View>
 
             <View style={styles.dropdown}>

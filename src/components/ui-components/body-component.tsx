@@ -53,14 +53,12 @@ export const BodyComponent: React.FC = () => {
 
     // Получение полей динамических значений лампы
     useEffect(() => {
-        let i = 0;
+        let arr: any = [];
+        let newDinLamps: DinamicFildsLampType[] = [];
+        
         client.on('messageReceived', (message: any) => {
-            console.log('Текущий топик: ', message.destinationName);
-            console.log('Ответ: ', message.payloadString);
-
-            if (JSON.stringify(message.payloadString)[0] === '#') {
-                return null;
-            }
+            // console.log('Текущий топик: ', message.destinationName);
+            // console.log('Ответ: ', message.payloadString);
 
             let responseMQTT = JSON.parse(message.payloadString);
             
@@ -89,13 +87,12 @@ export const BodyComponent: React.FC = () => {
                 setOnline(onlineArr);
             }
 
-            if (main === 'lamp' && responseMQTT.constructor === Object && !characteristic) {
-                console.log('currentValue', responseMQTT.currentValue)
+            if (main === 'lamp' && !characteristic) {
                 let objectDinLamp = {
                     id: lampId,
                     colorPicker: responseMQTT.colorPicker ? responseMQTT.colorPicker : '',
                     currentValue: responseMQTT.currentValue,
-                    toggleLamp: responseMQTT.toggleLamp ? responseMQTT.toggleLamp : '',
+                    toggleLamp: responseMQTT.toggleLamp ? responseMQTT.toggleLamp : false,
                     brightness: responseMQTT.brightness ? responseMQTT.brightness : '',
                     warmth: responseMQTT.warmth ? responseMQTT.warmth : '',
                     speed: responseMQTT.speed ? responseMQTT.speed : '',
@@ -103,12 +100,39 @@ export const BodyComponent: React.FC = () => {
                     isDynamic: responseMQTT.isDynamic,
                 }
 
-                dispatch(ActionCreator.addDinLamp(i, objectDinLamp));
-                i++;
+                if (dinLamps && dinLamps.length > 0) {
+                    let isSimilarObject: any = dinLamps.find((dinLamp) => {
+                        return dinLamp.id === lampId;
+                    });
+    
+                    let indexLamp = dinLamps.indexOf(isSimilarObject);
+    
+                    if (isSimilarObject && indexLamp >= 0) {
+                        dispatch(ActionCreator.addDinLamp(indexLamp, isSimilarObject));
+                    } else if (!isSimilarObject && indexLamp < 0) {
+                        arr.push(objectDinLamp);
+
+                        if (arr && arr.length > 0) {
+                            newDinLamps = removeDuplicates(arr);
+                        }
+
+                        newDinLamps.forEach((dinLamp, index) => {
+                            dispatch(ActionCreator.addDinLamp(index, dinLamp));
+                        })
+                    }
+                } else if (dinLamps && dinLamps.length === 0) {
+                    arr.push(objectDinLamp);
+
+                    if (arr && arr.length > 0) {
+                        newDinLamps = removeDuplicates(arr);
+                    }
+
+                    newDinLamps.forEach((dinLamp, index) => {
+                        dispatch(ActionCreator.addDinLamp(index, dinLamp));
+                    })
+                }
             }
-            // сделать управление цветным слайдером
-            // сделать вывод текущего режима
-        });
+        });  
     }, [])
 
     // Функция нажатия на лампу
@@ -146,6 +170,54 @@ export const BodyComponent: React.FC = () => {
         )
     };
 
+    const removeDuplicates = (arr: any) => {
+        const result: any = [];
+        const duplicatesIndices: any = [];
+    
+        // Перебираем каждый элемент в исходном массиве
+        arr.forEach((current: any, index: number) => {
+        
+            if (duplicatesIndices.includes(index)) return;
+        
+            result.push(current);
+        
+            // Сравниваем каждый элемент в массиве после текущего
+            for (let comparisonIndex = index + 1; comparisonIndex < arr.length; comparisonIndex++) {
+            
+                const comparison = arr[comparisonIndex];
+                const currentKeys = Object.keys(current);
+                const comparisonKeys = Object.keys(comparison);
+                
+                // Проверяем длину массивов
+                if (currentKeys.length !== comparisonKeys.length) continue;
+                
+                // Проверяем значение ключей
+                const currentKeysString = currentKeys.sort().join("").toLowerCase();
+                const comparisonKeysString = comparisonKeys.sort().join("").toLowerCase();
+                if (currentKeysString !== comparisonKeysString) continue;
+                
+                // Проверяем индексы ключей
+                let valuesEqual = true;
+                for (let i = 0; i < currentKeys.length; i++) {
+                    const key = currentKeys[i];
+                    if ( current[key] !== comparison[key] ) {
+                        valuesEqual = false;
+                        break;
+                    }
+                }
+                if (valuesEqual) duplicatesIndices.push(comparisonIndex);
+                
+            } // Конец цикла
+        });  
+        return result;
+    }
+
+    // let newDinLamps: DinamicFildsLampType[] = [];
+
+    // if (dinLamps && dinLamps.length > 0) {
+    //     newDinLamps = removeDuplicates(dinLamps);
+    // }
+
     component = (
         <ScrollView style={styles.scrollView}>
             <View style={styles.wrapperList}> 
@@ -154,9 +226,7 @@ export const BodyComponent: React.FC = () => {
                     style={styles.flatList}
                     data={dinLamps}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => {
-                        // const [ toggle, setToggle ] = useState(item.toggleLamp);
-
+                    renderItem={({ item }) => {                        
                         let isOnline = false;
 
                         let currentOnline = online.find((obj) => {
