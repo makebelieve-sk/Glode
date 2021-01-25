@@ -42,7 +42,7 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, se
 
     let characteristic = `brightness`;
     speed ? characteristic = `speed` : null;
-    heat ? characteristic = 'heat' : null;
+    heat ? characteristic = 'warmth' : null;
 
     return (
         <View style={styles.mainWrapper}>

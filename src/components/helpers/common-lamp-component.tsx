@@ -13,6 +13,7 @@ type CommonLampComponentType = {
 export const CommonLampComponent: React.FC<CommonLampComponentType> = ({ lampScreenObject }) => {
     const brightness = lampScreenObject.brightness;
     const warmth = lampScreenObject.warmth;
+
     const [ sliderValueBrightness, setSliderValueBrightness ] = useState<number | number[]>(parseInt(brightness));
     const [ sliderValueWarmth, setSliderValueWarmth ] = useState<number | number[]>(parseInt(warmth));
     

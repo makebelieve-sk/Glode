@@ -52,11 +52,8 @@ export const BodyComponent: React.FC = () => {
     let characteristic = "toggleLamp";
 
     // Получение полей динамических значений лампы
-    useEffect(() => {
-        let arr: any = [];
-        let newDinLamps: DinamicFildsLampType[] = [];
-        
-        client.on('messageReceived', (message: any) => {
+    useEffect(() => {        
+        client.on('messageReceived', async (message: any) => {
             // console.log('Текущий топик: ', message.destinationName);
             // console.log('Ответ: ', message.payloadString);
 
@@ -100,40 +97,42 @@ export const BodyComponent: React.FC = () => {
                     isDynamic: responseMQTT.isDynamic,
                 }
 
-                if (dinLamps && dinLamps.length > 0) {
-                    let isSimilarObject: any = dinLamps.find((dinLamp) => {
-                        return dinLamp.id === lampId;
-                    });
-    
-                    let indexLamp = dinLamps.indexOf(isSimilarObject);
-    
-                    if (isSimilarObject && indexLamp >= 0) {
-                        dispatch(ActionCreator.addDinLamp(indexLamp, isSimilarObject));
-                    } else if (!isSimilarObject && indexLamp < 0) {
-                        arr.push(objectDinLamp);
-
-                        if (arr && arr.length > 0) {
-                            newDinLamps = removeDuplicates(arr);
-                        }
-
-                        newDinLamps.forEach((dinLamp, index) => {
-                            dispatch(ActionCreator.addDinLamp(index, dinLamp));
-                        })
-                    }
-                } else if (dinLamps && dinLamps.length === 0) {
-                    arr.push(objectDinLamp);
-
-                    if (arr && arr.length > 0) {
-                        newDinLamps = removeDuplicates(arr);
-                    }
-
-                    newDinLamps.forEach((dinLamp, index) => {
-                        dispatch(ActionCreator.addDinLamp(index, dinLamp));
-                    })
-                }
+                await AsyncStorage.setItem(`${lampId}`, JSON.stringify(objectDinLamp));
             }
         });  
     }, [])
+
+    useEffect(() => {      
+        const getAllKeys = async () => {
+            let keys: string[] = [];
+
+            try {
+                keys = await AsyncStorage.getAllKeys();
+                
+                if (keys && keys.length > 0) {
+                    let user: any = keys.find((key) => {
+                        return key === 'user';
+                    })
+
+                    let index = keys.indexOf(user);
+
+                    if (user && index >= 0) {
+                        keys.splice(index, 1);
+                    }
+
+                    keys.forEach(async (key: string, index) => {
+                        let data: any = await AsyncStorage.getItem(key);
+                        dispatch(ActionCreator.addDinLamp(index, JSON.parse(data)));
+                    });
+                }
+            } catch (error: any) {
+                let errorText = `Произошла ошибка при подключении ламп: ${error}`;
+                dispatch(ActionCreator.getError(errorText));
+            }
+        };
+
+        getAllKeys();
+    }, [AsyncStorage]);
 
     // Функция нажатия на лампу
     const onPressLump = (item: DinamicFildsLampType) => {
@@ -170,54 +169,7 @@ export const BodyComponent: React.FC = () => {
         )
     };
 
-    const removeDuplicates = (arr: any) => {
-        const result: any = [];
-        const duplicatesIndices: any = [];
-    
-        // Перебираем каждый элемент в исходном массиве
-        arr.forEach((current: any, index: number) => {
-        
-            if (duplicatesIndices.includes(index)) return;
-        
-            result.push(current);
-        
-            // Сравниваем каждый элемент в массиве после текущего
-            for (let comparisonIndex = index + 1; comparisonIndex < arr.length; comparisonIndex++) {
-            
-                const comparison = arr[comparisonIndex];
-                const currentKeys = Object.keys(current);
-                const comparisonKeys = Object.keys(comparison);
-                
-                // Проверяем длину массивов
-                if (currentKeys.length !== comparisonKeys.length) continue;
-                
-                // Проверяем значение ключей
-                const currentKeysString = currentKeys.sort().join("").toLowerCase();
-                const comparisonKeysString = comparisonKeys.sort().join("").toLowerCase();
-                if (currentKeysString !== comparisonKeysString) continue;
-                
-                // Проверяем индексы ключей
-                let valuesEqual = true;
-                for (let i = 0; i < currentKeys.length; i++) {
-                    const key = currentKeys[i];
-                    if ( current[key] !== comparison[key] ) {
-                        valuesEqual = false;
-                        break;
-                    }
-                }
-                if (valuesEqual) duplicatesIndices.push(comparisonIndex);
-                
-            } // Конец цикла
-        });  
-        return result;
-    }
-
-    // let newDinLamps: DinamicFildsLampType[] = [];
-
-    // if (dinLamps && dinLamps.length > 0) {
-    //     newDinLamps = removeDuplicates(dinLamps);
-    // }
-
+    console.log(dinLamps)
     component = (
         <ScrollView style={styles.scrollView}>
             <View style={styles.wrapperList}> 
@@ -226,7 +178,8 @@ export const BodyComponent: React.FC = () => {
                     style={styles.flatList}
                     data={dinLamps}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => {                        
+                    renderItem={({ item }) => { 
+                        console.log(item)                   
                         let isOnline = false;
 
                         let currentOnline = online.find((obj) => {

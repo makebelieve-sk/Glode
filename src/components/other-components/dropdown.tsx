@@ -39,8 +39,6 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
         GetUser();
     }, []);
 
-    console.log(lamps)
-
     // Установка текущего названия режима, типа режима и списка режимов
     let lamp: LampType | any = lamps.find((lamp: LampType) => {
         return lampScreenObject.id === lamp.lampId;
@@ -115,8 +113,6 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                     result = currentObj.label;
                 };
 
-                console.log('Режим: ', result);
-
                 // Отправка сообщения на mqtt сервер
                 let topic = `lamp/${user}/${lampScreenObject.id}/${characteristic}`;
 
@@ -138,12 +134,14 @@ export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
                 }
 
                 // проверка на тип выбранного значения
-                let dinFlag = lamp.list.find((effect: any) => {
-                    return effect.value === stateValue && effect.dinType;
+                let newLamp = lamp.list.find((effect: any) => {
+                    return effect.value === Number(stateValue) && effect.dinType;
                 });
 
-                if (dinFlag) {
+                if (newLamp) {
                     setDinValue(true);
+                } else {
+                    setDinValue(false);
                 }
 
                 // Установка названия выбранного режима
@@ -162,9 +160,7 @@ const styles = StyleSheet.create({
         width: `100%`
     },
     flexBlockWrapper: {
-        flexDirection: `row`,
         width: `100%`,
-        justifyContent: `space-between`,
         alignItems: `center`,
     },
     buttonMode: {
