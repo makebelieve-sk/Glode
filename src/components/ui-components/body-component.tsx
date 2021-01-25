@@ -151,6 +151,7 @@ export const BodyComponent: React.FC = () => {
         });
 
         const user = await AsyncStorage.getItem('user');
+        await AsyncStorage.removeItem(`${id}`);
 
         if (user) {
             let topic = `${user}/${id}`;
