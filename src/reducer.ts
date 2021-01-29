@@ -22,7 +22,7 @@ const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
     switch(action.type) {
         case 'GET_ALL_LAMPS':
             return Object.assign({}, state, {
-                lamps: [ ...action.payload ]
+                lamps: action.payload
             });
         case 'ADD_LAMP':
             return Object.assign({}, state, {

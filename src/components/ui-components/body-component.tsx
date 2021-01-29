@@ -43,6 +43,12 @@ export const BodyComponent: React.FC = () => {
 
             if (user) {
                 setUser(user);
+
+                const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
+
+                if (data) {
+                    dispatch(ActionCreator.getAllLamps(data));
+                }
             }
         }
 
@@ -170,85 +176,84 @@ export const BodyComponent: React.FC = () => {
         )
     };
 
-    console.log(dinLamps)
     component = (
-        <ScrollView style={styles.scrollView}>
-            <View style={styles.wrapperList}> 
-            { dinLamps && dinLamps.length > 0 ?               
-                <FlatList
-                    style={styles.flatList}
-                    data={dinLamps}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => { 
-                        console.log(item)                   
-                        let isOnline = false;
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.wrapperList}> 
+                    { dinLamps && dinLamps.length > 0 ?               
+                        <FlatList
+                            style={styles.flatList}
+                            data={dinLamps}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => {
+                                let isOnline = false;
 
-                        let currentOnline = online.find((obj) => {
-                            return obj.id === item.id;
-                        });
+                                let currentOnline = online.find((obj) => {
+                                    return obj.id === item.id;
+                                });
 
-                        if (currentOnline) {
-                            isOnline = currentOnline.alive;
-                        }
+                                if (currentOnline) {
+                                    isOnline = currentOnline.alive;
+                                }
 
-                        return (
-                            <GestureRecognizer 
-                                onSwipeLeft={() => onSwipeLeft(item.id)}
-                                config={config}
-                                style={{flex: 1, width: `100%`}}
-                            >
-                                <View style={styles.elementWrapper}>
-                                    <TouchableOpacity 
-                                        onPress={() => onPressLump(item)} 
-                                        style={styles.wrapperElementName}
+                                return (
+                                    <GestureRecognizer 
+                                        onSwipeLeft={() => onSwipeLeft(item.id)}
+                                        config={config}
+                                        style={{flex: 1, width: `100%`}}
                                     >
-                                        { isOnline ? 
-                                            <Text style={styles.isOnline}>В сети</Text> : 
-                                            <Text style={styles.notOnline}>Не в сети</Text>
-                                        }
-    
-                                        <Text style={styles.elementName}>{ item.title }</Text>
-                                    </TouchableOpacity>
-    
-                                    <View style={styles.wrapperButton}>
-                                        <ToggleSwitch
-                                            isOn={ item.toggleLamp }
-                                            onColor="green"
-                                            offColor="#39383d"
-                                            label=""
-                                            labelStyle={{ color: "black", fontWeight: "900" }}
-                                            size="large"
-                                            onToggle={(isOn: boolean) => {
-                                                let topic = `lamp/${user}/${item.id}/${characteristic}`;
-
-                                                // Отправка сообщения на mqtt сервер
-                                                const message = new Message(JSON.stringify(isOn));
-                                                message.destinationName = topic;
-                                                client.send(message);
-
-                                                item.toggleLamp = isOn;
-                                                let currentDinLamp: any | DinamicFildsLampType = dinLamps.find((lamp: DinamicFildsLampType) => {
-                                                    return lamp.id === item.id;
-                                                });
-
-                                                let indexLamp = dinLamps.indexOf(currentDinLamp);
-
-                                                if (currentDinLamp && indexLamp >= 0) {
-                                                    dispatch(ActionCreator.addDinLamp(indexLamp, currentDinLamp));
+                                        <View style={styles.elementWrapper}>
+                                            <TouchableOpacity 
+                                                onPress={() => onPressLump(item)} 
+                                                style={styles.wrapperElementName}
+                                            >
+                                                { isOnline ? 
+                                                    <Text style={styles.isOnline}>В сети</Text> : 
+                                                    <Text style={styles.notOnline}>Не в сети</Text>
                                                 }
-                                            }}
-                                            />
-                                    </View>                    
-                                </View>
-                            </GestureRecognizer>
-                    )}}
-                /> :
-                <Text style={styles.emptyText}>Список ламп пуст</Text>
-            }
+            
+                                                <Text style={styles.elementName}>{ item.title }</Text>
+                                            </TouchableOpacity>
+            
+                                            <View style={styles.wrapperButton}>
+                                                <ToggleSwitch
+                                                    isOn={ item.toggleLamp }
+                                                    onColor="green"
+                                                    offColor="#39383d"
+                                                    label=""
+                                                    labelStyle={{ color: "black", fontWeight: "900" }}
+                                                    size="large"
+                                                    onToggle={(isOn: boolean) => {
+                                                        let topic = `lamp/${user}/${item.id}/${characteristic}`;
 
-                <AddLamp />
-        </View>
-        </ScrollView>                     
+                                                        // Отправка сообщения на mqtt сервер
+                                                        const message = new Message(JSON.stringify(isOn));
+                                                        message.destinationName = topic;
+                                                        client.send(message);
+
+                                                        item.toggleLamp = isOn;
+                                                        let currentDinLamp: any | DinamicFildsLampType = dinLamps.find((lamp: DinamicFildsLampType) => {
+                                                            return lamp.id === item.id;
+                                                        });
+
+                                                        let indexLamp = dinLamps.indexOf(currentDinLamp);
+
+                                                        if (currentDinLamp && indexLamp >= 0) {
+                                                            dispatch(ActionCreator.addDinLamp(indexLamp, currentDinLamp));
+                                                        }
+                                                    }}
+                                                    />
+                                            </View>                    
+                                        </View>
+                                    </GestureRecognizer>
+                            )}}
+                        /> :
+                        <Text style={styles.emptyText}>Список ламп пуст</Text>
+                    }
+
+                        <AddLamp />
+                </View>
+            </ScrollView> 
+            
     );
     
     loading ? component = <Spinner /> :

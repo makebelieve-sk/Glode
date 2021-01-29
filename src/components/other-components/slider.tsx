@@ -59,19 +59,19 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, se
                     <Slider
                         animateTransitions
                         minimumValue={0}
-                        step={25}
+                        step={10}
                         maximumValue={255}
                         minimumTrackTintColor="#fff"
                         thumbStyle={styles.thumb}
                         trackStyle={styles.track}
                         value={sliderValue}
-                        onValueChange={sliderValue => {
-                            setSliderValue(sliderValue);
+                        onValueChange={newSliderValue => {
+                            setSliderValue(newSliderValue);
 
                             let topic = `lamp/${user}/${lampId}/${characteristic}`;
 
                             // Отправка сообщения на mqtt сервер
-                            const message = new Message(JSON.stringify(sliderValue[0]));
+                            const message = new Message(JSON.stringify(newSliderValue[0]));
                             message.destinationName = topic;
                             client.send(message);
 
@@ -79,7 +79,7 @@ export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, se
                                 return lamp.id === lampId;
                             });
 
-                            speed ? currentLamp.speed = sliderValue[0] : currentLamp.brightness = sliderValue[0];
+                            speed ? currentLamp.speed = newSliderValue[0] : currentLamp.brightness = newSliderValue[0];
 
                             let indexLamp = dinLamps.indexOf(currentLamp);
 
