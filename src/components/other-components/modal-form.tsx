@@ -1,10 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableHighlight } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useHttp } from '../../hooks/useHttp.hook';
 
-import { ActionCreator } from '../../reducer';
+import { StateType } from '../../types';
 
 type ModalFormType = {
     showForm: boolean, 
@@ -13,8 +12,12 @@ type ModalFormType = {
 };
 
 export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setModalVisible }) => {
-    const { request, loading } = useHttp();
-    const dispatch = useDispatch();
+    const { request } = useHttp();
+    
+    const { user } = useSelector((state: StateType) => ({
+        user: state.user
+    }));
+
     const [ value, onChangeText ] = useState<string>('');
     const [ password, onChangePassword ] = useState<string>('');
     const [ textInvalid, setTextInvalid ] = useState<string | null>(null);
@@ -48,18 +51,8 @@ export const ModalForm: React.FC<ModalFormType> = ({ showForm, setShowForm, setM
             setShowForm(!showForm);
             setModalVisible(false);
 
-            const user = await AsyncStorage.getItem('user');
-
             if (user) {
-                const response = await request('http://192.168.4.1:80/getmac', 'POST', {name: value, password: password, login: user});
-
-                if (response) {
-                    const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
-
-                    if (data) {
-                        dispatch(ActionCreator.getAllLamps(data));
-                    }
-                }
+                await request('http://192.168.4.1:80/getmac', 'POST', {name: value, password: password, login: user});
             }
         }
     };

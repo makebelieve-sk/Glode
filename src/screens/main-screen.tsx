@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import { connect } from 'react-redux';
+import { connect, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useDispatch } from 'react-redux';
 
 import { HelloScreen } from './hello-screen';
 import { MenuScreen } from './menu-screen';
@@ -14,12 +13,12 @@ import { useHttp } from '../hooks/useHttp.hook';
 
 type mapStatePropsType = {
   errorMessage: null | string,
-  isAuth: boolean
+  user: null | string
 };
 
 type MainPageScreenProps = mapStatePropsType;
 
-export const MainPageScreen: React.FC<MainPageScreenProps> = ({errorMessage, isAuth}) => {
+export const MainPageScreen: React.FC<MainPageScreenProps> = ({errorMessage, user}) => {
   let component;
 
   const { request, loading } = useHttp();
@@ -32,12 +31,12 @@ export const MainPageScreen: React.FC<MainPageScreenProps> = ({errorMessage, isA
       try {
         const user = await AsyncStorage.getItem('user');
         await client.connect();
-
+        
         if (user) {
           dispatch(ActionCreator.setAuth(user));
 
           const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
-
+          
           if (data) {
             dispatch(ActionCreator.getAllLamps(data));
           }
@@ -60,18 +59,17 @@ export const MainPageScreen: React.FC<MainPageScreenProps> = ({errorMessage, isA
   
   errorMessage ? component = <ErrorComponent errorMessage={errorMessage} /> :
   loading ? component = <Spinner /> : 
-  isAuth ? component = (
+  user ? component = (
     <MenuScreen />
   ) :
-  component = <HelloScreen />
+  component = <HelloScreen />;
 
   return component;
 };
 
 const mapStateToProps = (state: StateType) => ({
   errorMessage: state.errorMessage,
-  lampScreenObject: state.lampScreenObject,
-  isAuth: state.isAuth
+  user: state.user
 });
 
 export default connect<mapStatePropsType, {}, {}, StateType>(mapStateToProps)(MainPageScreen);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, Text, View, Dimensions } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Slider } from "@miblanchard/react-native-slider";
@@ -10,7 +10,6 @@ import { Message } from 'react-native-paho-mqtt';
 import client from '../../MQTTConnection';
 import { DinamicFildsLampType, StateType } from '../../types';
 import { ActionCreator } from '../../reducer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SliderComponentType = {
     sliderValue: number | number[], 
@@ -21,24 +20,11 @@ type SliderComponentType = {
 };
 
 export const SliderComponent: React.FC<SliderComponentType> = ({ sliderValue, setSliderValue, speed, lampId, heat }) => {
-    const {dinLamps} = useSelector((state: StateType) => ({
-        dinLamps: state.dinLamps
+    const {dinLamps, user} = useSelector((state: StateType) => ({
+        dinLamps: state.dinLamps,
+        user: state.user
     }));    
     const dispatch = useDispatch();
-
-    const [ user, setUser ] = useState<null | string>(null);
-
-    useEffect(() => {
-        const GetUser = async () => {
-            const user = await AsyncStorage.getItem('user');
-
-            if (user) {
-                setUser(user);
-            }
-        }
-
-        GetUser();
-    }, []);
 
     let characteristic = `brightness`;
     speed ? characteristic = `speed` : null;

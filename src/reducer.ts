@@ -5,8 +5,7 @@ type initialStateLampType = {
     dinLamps: DinamicFildsLampType[],
     errorMessage: null | string,
     lampScreenObject: null | any,
-    isAuth: boolean,
-    authInvalidMessage: null | string
+    user: null | string
 };
 
 const initialStateLamp: initialStateLampType = {
@@ -14,8 +13,7 @@ const initialStateLamp: initialStateLampType = {
     dinLamps: [],
     errorMessage: null,
     lampScreenObject: null,
-    isAuth: false,
-    authInvalidMessage: null,
+    user: null
 };
 
 const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
@@ -65,18 +63,11 @@ const reducer = (state = initialStateLamp, action: ActionCreatorType) => {
             });
         case `SET_AUTH`:
             return Object.assign({}, state, {
-                authInvalidMessage: null,
-                isAuth: true
+                user: action.payload
             });
         case `LOG_OUT`:
             return Object.assign({}, state, {
-                authInvalidMessage: null,
-                isAuth: false
-            });
-        case `SET_INVALID_AUTH`:
-            return Object.assign({}, state, {
-                authInvalidMessage: action.payload ? action.payload : null,
-                isAuth: false
+                user: null
             });
         default:
             return state;
@@ -236,13 +227,6 @@ const ActionCreator = {
         return {
             type: `SET_ONLINE`,
             payload: isOnline
-        } as const
-    },
-    // Установка сообщения при проблеме авторизации
-    setInvalidAuth: (message: string) => {
-        return {
-            type: 'SET_INVALID_AUTH',
-            payload: message
         } as const
     },
     // Установка авторизации пользователя

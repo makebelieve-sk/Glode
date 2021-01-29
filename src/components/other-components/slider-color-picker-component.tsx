@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';//@ts-ignore
-import { SliderSaturationPicker } from 'react-native-slider-color-picker';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import tinycolor from 'tinycolor2';
 import { Fontisto } from '@expo/vector-icons';
@@ -8,35 +7,23 @@ import { HsvColor } from 'react-native-color-picker/dist/typeHelpers';
 import { useDispatch, useSelector } from 'react-redux';
 //@ts-ignore
 import { Message } from 'react-native-paho-mqtt';
+//@ts-ignore
+import { SliderSaturationPicker } from 'react-native-slider-color-picker';
 
 import { DinamicFildsLampType, StateType } from '../../types';
 import client from '../../MQTTConnection';
 import { ActionCreator } from '../../reducer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SliderColorPickerComponentType = {
     lampScreenObject: DinamicFildsLampType,
 };
  
 export const SliderColorPickerComponent: React.FC<SliderColorPickerComponentType> = ({ lampScreenObject }) => {
-    const {dinLamp} = useSelector((state: StateType) => ({
-        dinLamp: state.dinLamps
+    const {dinLamp, user} = useSelector((state: StateType) => ({
+        dinLamp: state.dinLamps,
+        user: state.user
     }));    
     const dispatch = useDispatch();
-
-    const [ user, setUser ] = useState<null | string>(null);
-
-    useEffect(() => {
-        const GetUser = async () => {
-            const user = await AsyncStorage.getItem('user');
-
-            if (user) {
-                setUser(user);
-            }
-        }
-
-        GetUser();
-    }, []);
     
     let characteristic = `heat`;
 

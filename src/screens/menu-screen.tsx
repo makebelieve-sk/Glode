@@ -18,22 +18,21 @@ export const MenuScreen: React.FC = () => {
         directionalOffsetThreshold: 80
     };
 
-    const { lamps, lampScreenObject, dinLamps } = useSelector((state: StateType) => ({
-        lamps: state.lamps,
-        dinLamps: state.dinLamps,
-        lampScreenObject: state.lampScreenObject
+    const { user } = useSelector((state: StateType) => ({
+        user: state.user
     }));
     const dispatch = useDispatch();
+
     const { request } = useHttp();
 
-    const [ user, setUser ] = useState<null | string>(null);
+    // const [ user, setUser ] = useState<null | string>(null);
 
     useEffect(() => {
         const GetUser = async () => {
-            const user = await AsyncStorage.getItem('user');
+            // const user = await AsyncStorage.getItem('user');
 
             if (user) {
-                setUser(user);
+                // setUser(user);
 
                 const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
 
@@ -46,7 +45,7 @@ export const MenuScreen: React.FC = () => {
         GetUser();
     }, []);
 
-    // Функция обработки свайпа на лево
+    // Обновление экрана
     const onSwipeDown = async () => {
         const data = await request('http://5.189.86.177:8080/api/lamp/getall', 'POST', {login: user});
         alert('Обновление')

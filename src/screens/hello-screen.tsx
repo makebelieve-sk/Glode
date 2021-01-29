@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, StatusBar, Platform, Text, Image } from 'react-native';
+import { StyleSheet, View, StatusBar, Platform, Text } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { Container, Button, Content, Form, Item, Input, Icon } from 'native-base';
 import { Row, Grid } from "react-native-easy-grid";
@@ -41,32 +41,39 @@ export const HelloScreen: React.FC = () => {
         } else {
             setSuccess(true);
 
-            const data = await request('http://5.189.86.177:8080/api/auth/' + auth, 'POST', { login, pass });
-
-            if (data.login) {
-                // Функция записи пользователя в хранилище телефона
-                const setUser = async (login: string) => {
-                    try {
-                        await AsyncStorage.setItem('user', login);
-                    } catch (error) {
-                        let errorText = `Ошибка при сохранении пользователя: ${error}`;
-                        dispatch(ActionCreator.getError(errorText));
-                    }
-                };
-
-                setUser(data.login);
-                dispatch(ActionCreator.setAuth(login));
+            try {
+                const data = await request('http://5.189.86.177:8080/api/auth/' + auth, 'POST', { login, pass });
+                
+                if (data.login) {
+                    // Функция записи пользователя в хранилища телефона и redux`а
+                    const setUser = async (login: string) => {
+                        try {
+                            await AsyncStorage.setItem('user', login);
+                            dispatch(ActionCreator.setAuth(login));
+                        } catch (error) {
+                            let errorText = `Ошибка при сохранении пользователя: ${error}`;
+                            dispatch(ActionCreator.getError(errorText));
+                        }
+                    };
+    
+                    setUser(data.login);
+                    dispatch(ActionCreator.setAuth(login));
+                }
+            } catch(e) {
+                let errorText = 'Возникла ошибка при установке связи с сервером авторизации, пожалуйста, перезагрузите приложение.';
+                dispatch(ActionCreator.getError(errorText));
             }
+            
         }
     };
 
     loading ? component = <Spinner /> :
     component = (
-        <Container style={{paddingTop: Platform.OS === `android` ? StatusBar.currentHeight : 0,}}>
-            <Grid style={{alignItems: "center", justifyContent: "center"}}>
-                <Row size={20} style={{alignItems: "flex-end"}}><Text style={styles.title}>GLODE</Text></Row>
-                <Row size={15} style={{justifyContent: "center"}}><Text style={styles.subTitle}>СТИЛЬНЫЕ ИНТЕРЬЕРНЫЕ РЕШЕНИЯ</Text></Row>
-                <Row size={55} style={{width: '80%'}}>
+        <Container style={styles.container}>
+            <Grid style={styles.wrapperGrid}>
+                <Row size={20} style={styles.rowTitle}><Text style={styles.title}>GLODE</Text></Row>
+                <Row size={15} style={styles.rowSubTitle}><Text style={styles.subTitle}>СТИЛЬНЫЕ ИНТЕРЬЕРНЫЕ РЕШЕНИЯ</Text></Row>
+                <Row size={55} style={styles.rowContent}>
                     <Content>
                         <Form>
                             <Item floatingLabel success={success} error={errorLogin} last>
@@ -87,7 +94,7 @@ export const HelloScreen: React.FC = () => {
                             </Item>
                         </Form>
 
-                        <Button block primary onPress={() => authHandler('login')} style={{marginTop: '10%', marginBottom: '5%'}}>
+                        <Button block primary onPress={() => authHandler('login')} style={styles.buttonLogin}>
                             <Text>Войти</Text>
                         </Button>
                         <Button block light onPress={() => authHandler('reg')}>
@@ -95,7 +102,7 @@ export const HelloScreen: React.FC = () => {
                         </Button>
                     </Content>
                 </Row>
-                <Row size={10} style={{alignItems: "center"}}>
+                <Row size={10} style={styles.rowFooter}>
                     <View style={styles.wrapperUrlButton}>
                         <OpenUrlButton>ПЕРЕЙТИ НА САЙТ ПРОИЗВОДИТЕЛЯ</OpenUrlButton>
                     </View>
@@ -108,84 +115,43 @@ export const HelloScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    screenHelloWrapper: {
-      flex: 1,
-      backgroundColor: '#6bc4fe',
-      paddingTop: Platform.OS === `android` ? StatusBar.currentHeight : 0,
-      alignItems: `center`,
-      width: `100%`
+    container: {
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
     },
-    image: {
-        height: `100%`,
-        width: `100%`,
-        resizeMode: "contain",
-        borderWidth: 1
+    wrapperGrid: {
+        alignItems: "center", 
+        justifyContent: "center"
     },
-    screenHelloSubHeader: {
-        width: `100%`,
-        alignItems: `center`,
-        justifyContent: `center`,
+    rowTitle: {
+        alignItems: "flex-end"
+    },
+    rowSubTitle: {
+        justifyContent: "center"
+    },
+    rowContent: {
+        width: '80%'
+    },
+    rowFooter: {
+        alignItems: "center"
     },
     title: {
         fontSize: 28,
         fontFamily: 'merri-weather-bold',
-        color: `black`
+        color: 'black'
     },
     subTitle: {
         fontSize: 16,
         fontFamily: 'merri-weather-bold',
-        color: `black`
+        color: 'black'
     },
-    screenHelloBody: {
-        height: `65%`,
-        width: `100%`,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    inputsField: {
-        width: '90%',
-        alignItems: 'center',
-    },
-    inputs: {
-        height: 40, 
-        borderBottomColor: 'gray', 
-        borderBottomWidth: 1, 
-        width: '80%'
-    },
-    buttonsField: {
-        marginTop: '10%',
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        width: '90%',
-        alignItems: 'center',
-    },
-    buttonWrapper: {
-        width: '40%', 
-        alignItems: "center", 
-        backgroundColor: "#DDDDDD", 
-        padding: 8
-    },
-    buttonsText: {
-        fontSize: 18,
-    },
-    invalidBlock: {
-        // borderColor: `red`,
-        // borderWidth: 1,
-        alignItems: `center`
-    },
-    textInvalid: {
-        color: `red`,
-        fontSize: 16
-    },
-    screenHelloFooter: {
-        justifyContent: `center`,
-        width: `100%`,
-        flex: 1,
+    buttonLogin: {
+        marginTop: '10%', 
+        marginBottom: '5%'
     },
     wrapperUrlButton: {
         width: `100%`,
-        backgroundColor: `#4da8e7`,
-        justifyContent: `center`,
-        alignItems: `center`,
+        backgroundColor: '#4da8e7',
+        justifyContent: 'center',
+        alignItems: 'center',
     }
 });

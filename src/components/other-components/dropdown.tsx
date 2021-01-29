@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';//@ts-ignore
 import { ModalSelectList } from 'react-native-modal-select-list';
@@ -10,7 +10,6 @@ import { SliderComponent } from './slider';
 import { DinamicFildsLampType, LampType, StateType } from '../../types';
 import client from '../../MQTTConnection';
 import { ActionCreator } from '../../reducer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const characteristic = 'effect';
 
@@ -19,25 +18,12 @@ type DropdownType = {
 };
 
 export const Dropdown: React.FC<DropdownType> = ({ lampScreenObject }) => {
-    const {dinLamp, lamps} = useSelector((state: StateType) => ({
+    const {dinLamp, lamps, user} = useSelector((state: StateType) => ({
         dinLamp: state.dinLamps,
-        lamps: state.lamps
-    }));    
+        lamps: state.lamps,
+        user: state.user
+    }));
     const dispatch = useDispatch();
-
-    const [ user, setUser ] = useState<null | string>(null);
-
-    useEffect(() => {
-        const GetUser = async () => {
-            const user = await AsyncStorage.getItem('user');
-
-            if (user) {
-                setUser(user);
-            }
-        }
-
-        GetUser();
-    }, []);
 
     // Установка текущего названия режима, типа режима и списка режимов
     let lamp: LampType | any = lamps.find((lamp: LampType) => {
